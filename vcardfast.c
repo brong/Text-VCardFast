@@ -2,14 +2,16 @@
 
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
 
 #include "vcardfast.h"
 
-static struct buf {
+struct buf {
     char *s;
     size_t len;
     size_t alloc;
-}
+};
 
 #define BUF_INITIALIZER { NULL, 0, 0 }
 
@@ -30,7 +32,7 @@ static size_t roundup(size_t size)
     return ((size + 1024) & ~1023);
 }
 
-static void buf_ensure(size_t n)
+static void buf_ensure(struct buf *buf, size_t n)
 {
     size_t newalloc = roundup(buf->len + n);
 
@@ -167,7 +169,7 @@ static const char *_parse_entry_params(const char *src, struct vcardfast_param *
 	case '\\': /* normal backslash quoting */
 	    if (!p[1]) goto fail;
 	    if (p[1] == 'n' || p[1] == 'N')
-		buf_putc(&val, "\n");
+		buf_putc(&val, '\n');
 	    else
 		buf_putc(&val, p[1]);
 	    p += 2;
@@ -261,7 +263,7 @@ fail:
     return NULL;
 }
 
-static const char *_parse_entry_key(const char *src, struct buf dbuf, struct vcardfast_param **paramp)
+static const char *_parse_entry_key(const char *src, struct buf *dbuf, struct vcardfast_param **paramp)
 {
     const char *p = src;
 
@@ -296,7 +298,7 @@ fail:
     return NULL;
 }
 
-static const char *_parse_entry_value(const char *src, struct buf dbuf)
+static const char *_parse_entry_value(const char *src, struct buf *dbuf)
 {
     const char *p = src;
 
@@ -363,7 +365,7 @@ static void _vcardfast_entry_free(struct vcardfast_entry *entry)
     }
 }
 
-void vcardfast_free(vcardfast_card *card)
+void vcardfast_free(struct vcardfast_card *card)
 {
     struct vcardfast_card *sub, *subnext;;
 
@@ -385,14 +387,14 @@ void vcardfast_free(vcardfast_card *card)
  * 1: param key
  * 2: param value
  */
-struct const char *vcardfast_parse(const char *src, struct vcardfast_card **cardp, int flags)
+static const char *_parse_vcard(const char *src, struct vcardfast_card *card, int flags)
 {
     struct buf key = BUF_INITIALIZER;
     struct buf val = BUF_INITIALIZER;
     struct vcardfast_param *params = NULL;
-    struct vcardfast_entry *entry = NULL;
-    const char *p;
-    int state = 0;
+    struct vcardfast_card **subp = &card->objects;
+    struct vcardfast_entry **entryp = &card->properties;
+    const char *p = src;
 
     while (*p) {
 	/* skip blank lines */
@@ -402,41 +404,84 @@ struct const char *vcardfast_parse(const char *src, struct vcardfast_card **card
 	}
 
 	p = _parse_entry_key(p, &key, &params);
+	if (!p) goto fail;
 	p = _parse_entry_value(p, &val);
+	if (!p) goto fail;
 
 	if (!strcasecmp(buf_cstring(&key), "BEGIN")) {
-	    struct vcardfast_card *card = NULL;
+	    struct vcardfast_card *sub = NULL;
 	    /* shouldn't be any params */
-	    if (params) {
-		_vcardfast_param_free(params);
-		goto fail;
-	    }
-	    MAKE(card, vcardfast_card);
-	    card->type = buf_release(&val);
+	    if (params) goto fail;
+	    MAKE(sub, vcardfast_card);
+	    sub->type = buf_release(&val);
+	    p = _parse_vcard(p, sub, flags);
 	    if (!p) goto fail;
-	    *cardp = card;
-	    p = vcardfast_parse(p, &card, flags);
+	    *subp = sub;
+	    subp = &sub->next;
 	}
 	else if (!strcasecmp(buf_cstring(&key), "END")) {
-	    _vcardfast_param_free(params);
+	    if (params) goto fail;
 	    if (strcasecmp(buf_cstring(&val), card->type))
 		goto fail;
 	    /* complete :) - XXX free stuff */
+	    buf_free(&key);
+	    buf_free(&val);
 	    return p;
 	}
 	else {
+	    struct vcardfast_entry *entry = NULL;
 	    /* it's a parameter on this one */
 	    MAKE(entry, vcardfast_entry);
 	    entry->name = buf_release(&key);
-	    entry->value = buf_release(&val);
 	    entry->params = params;
+	    params = NULL;
+	    entry->value = buf_release(&val);
 	    *entryp = entry;
 	    entryp = &entry->next;
 	}
     }
 
 fail:
+    _vcardfast_param_free(params);
     buf_free(&key);
     buf_free(&val);
     return NULL;
+}
+
+struct vcardfast_card *vcardfast_parse(const char *src, int flags)
+{
+    const char *p = src;
+    struct vcardfast_card *card = NULL;
+    MAKE(card, vcardfast_card);
+
+    p = _parse_vcard(src, card, flags);
+    if (!p) goto fail;
+
+    /* XXX - check for trailing non-whitespace? */
+
+    return card;
+
+fail:
+    vcardfast_free(card);
+    return NULL;
+}
+
+int main(int argv, const char **argc)
+{
+    const char *fname = argc[1];
+    struct stat sbuf;
+    int fd = open(fname, O_RDWR);
+    struct vcardfast_card *res;
+    char *data;
+
+    fstat(fd, &sbuf);
+    data = malloc(sbuf.st_size+1);
+
+    read(fd, data, sbuf.st_size);
+    data[sbuf.st_size] = '\0';
+
+    res = vcardfast_parse(data, 0);
+    printf("RES: %llu", res);
+
+    return 0;
 }
