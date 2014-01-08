@@ -86,11 +86,23 @@ static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
                 else p++;
             }
             break;
+	case '\r':
+	    break; /* just skip */
+	case '\n':
+	    if (p[1] != ' ' && p[1] != '\t')
+		goto fail; /* end line without value */
+	    p += 2;
+	    break;
         default:
             buf_putc(dbuf, *p++);
             break;
         }
     }
+fail:
+    /* FAILURE - finished before the end of the parameter*/
+    buf_reset(dbuf);
+
+    return NULL;
 }
 
 static const char *_parse_param_key(const char *src, struct buf *dbuf)
@@ -101,11 +113,23 @@ static const char *_parse_param_key(const char *src, struct buf *dbuf)
 	switch (*p) {
 	case '=':
 	    return p+1;
+	case '\r':
+	    break; /* just skip */
+	case '\n':
+	    if (p[1] != ' ' && p[1] != '\t')
+		goto fail; /* end line without value */
+	    p += 2;
+	    break;
 	default:
 	    buf_putc(dbuf, *p++);
 	    break;
 	}
     }
+fail:
+    /* FAILURE - finished before the end of the parameter*/
+    buf_reset(dbuf);
+
+    return NULL;
 }
 
 static const char *_parse_param(const char *src, struct vcardfast_param **paramp)
@@ -191,6 +215,34 @@ fail:
     return NULL;
 }
 
+static const char *_parse_entry_key(const char *src, struct buf dbuf)
+{
+    const char *p = src;
+
+    while (*p) {
+	switch (*p) {
+	case ':':
+	case ';':
+	    return p;
+	case '\r':
+	    break; /* just skip */
+	case '\n':
+	    if (p[1] != ' ' && p[1] != '\t')
+		goto fail; /* end line without value */
+	    p += 2;
+	    break;
+	default:
+	    buf_putc(dbuf, *p++);
+	    break;
+	}
+    }
+fail:
+    /* FAILURE - finished before the end of the parameter*/
+    buf_reset(dbuf);
+
+    return NULL;
+}
+
 /* STATE MAP
  * 0: parsing key
  * 1: param key
@@ -207,7 +259,14 @@ struct const char *vcardfast_parse(const char *src, struct vcardfast_card *card,
 
     memset(card, 0, sizeof(struct vcardfast_card));
 
-    while (*p) {
+    while (*p)
+	p = _parse_entry_key(p, &buf);
+	if (strcmp(buf_cstring(&buf), "BEGIN")) {
+	    /* ERROR */
+	}
+	buf_reset(&buf);
+	p = _parse_entry_value(p, &buf);
+	if (buf_cstring(
         switch (*p) {
         case ';':
             /* got name into buf, now to parse params */
