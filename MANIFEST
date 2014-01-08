@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+ppport.h
+README
+VCardFast.xs
+t/Text-VCardFast.t
+lib/Text/VCardFast.pm
