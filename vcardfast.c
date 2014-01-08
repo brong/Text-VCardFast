@@ -65,6 +65,23 @@ static char *buf_release(struct buf *buf)
     return ret;
 }
 
+static char *buf_strdup(struct buf *buf)
+{
+    return strdup(buf_cstring(buf));
+}
+
+static void buf_free(struct buf *buf)
+{
+    free(buf->s);
+    buf->s = NULL;
+    buf->len = buf->alloc = 0;
+}
+
+static void buf_reset(struct buf *buf)
+{
+    buf->len = 0;
+}
+
 #define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
 
 static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
@@ -86,6 +103,7 @@ static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
                 else p++;
             }
             break;
+
 	case '\r':
 	    break; /* just skip */
 	case '\n':
@@ -93,6 +111,7 @@ static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
 		goto fail; /* end line without value */
 	    p += 2;
 	    break;
+
         default:
             buf_putc(dbuf, *p++);
             break;
@@ -113,6 +132,7 @@ static const char *_parse_param_key(const char *src, struct buf *dbuf)
 	switch (*p) {
 	case '=':
 	    return p+1;
+
 	case '\r':
 	    break; /* just skip */
 	case '\n':
@@ -120,6 +140,7 @@ static const char *_parse_param_key(const char *src, struct buf *dbuf)
 		goto fail; /* end line without value */
 	    p += 2;
 	    break;
+
 	default:
 	    buf_putc(dbuf, *p++);
 	    break;
@@ -132,67 +153,91 @@ fail:
     return NULL;
 }
 
-static const char *_parse_param(const char *src, struct vcardfast_param **paramp)
+static const char *_parse_entry_params(const char *src, struct vcardfast_param **paramp)
 {
-    struct vcardfast_param *param = NULL;
     struct buf key = BUF_INITIALIZER;
     struct buf val = BUF_INITIALIZER;
     const char *p = src;
 
-restart:
     p = _parse_param_key(p, &key);
-
-    /* handle quoted parameters */
-    if (*p == '"')
-	p = _parse_param_quoted(p+1, &val);
+    if (!p) goto fail;
 
     while (*p) {
         switch (*p) {
 	case '\\': /* normal backslash quoting */
+	    if (!p[1]) goto fail;
 	    if (p[1] == 'n' || p[1] == 'N')
-		buf_putc(dbuf, "\n");
+		buf_putc(&val, "\n");
 	    else
-		buf_putc(dbuf, p[1]);
+		buf_putc(&val, p[1]);
 	    p += 2;
 	    break;
-	case '^':
+	case '^': /* special value quoting for doublequote (RFC 68xx) */
 	    if (p[1] == '\'') {
-		buf_putc(dbuf, '"');
+		buf_putc(&val, '"');
 		p += 2;
 	    }
 	    else if (p[1] == 'n') {
-		buf_putc(dbuf, '\n');
+		buf_putc(&val, '\n');
 		p += 2;
 	    }
 	    else {
-		buf_putc(dbuf, '^');
+		buf_putc(&val, '^');
 		if (p[1] == '^') p += 2;
 		else p++;
 	    }
 	    break;
+	case '"':
+	    p = _parse_param_quoted(p+1, &val);
+	    if (!p) goto fail;
+	    break;
+
 	case ':':
 	    /* done - all parameters parsed */
-	    MAKE(param, vcardfast_param);
-	    param->name = buf_release(&key);
-	    param->value = buf_release(&val);
-	    *paramp = param;
+	    if (paramp) {
+		struct vcardfast_param *param = NULL;
+		MAKE(param, vcardfast_param);
+		param->name = buf_release(&key);
+		param->value = buf_release(&val);
+		*paramp = param;
+	    }
+	    else {
+		buf_free(&key);
+		buf_free(&val);
+	    }
 	    return p+1;
 	    break;
 	case ';':
 	    /* another parameter to parse */
-	    MAKE(param, vcardfast_param);
-	    param->name = buf_release(&key);
-	    param->value = buf_release(&val);
-	    *paramp = param;
-	    paramp = &param->next;
-	    goto restart;
+	    if (paramp) {
+		struct vcardfast_param *param = NULL;
+		MAKE(param, vcardfast_param);
+		param->name = buf_release(&key);
+		param->value = buf_release(&val);
+		*paramp = param;
+		paramp = &param->next;
+	    }
+	    else {
+		buf_free(&key);
+		buf_free(&val);
+	    }
+	    p = _parse_param_key(p+1, &key);
+	    if (!p) goto fail;
+	    break;
 	case ',':
 	    /* multiple values separated by a comma */
-	    MAKE(param, vcardfast_param);
-	    param->name = strdup(buf_cstring(&key));
-	    param->value = buf_release(&val);
-	    *paramp = param;
-	    paramp = &param->next;
+	    if (paramp) {
+		struct vcardfast_param *param = NULL;
+		MAKE(param, vcardfast_param);
+		param->name = buf_strdup(&key);
+		param->value = buf_release(&val);
+		*paramp = param;
+		paramp = &param->next;
+	    }
+	    else {
+		/* keeping key */
+		buf_free(&val);
+	    }
 	    p++;
 	    break;
 
@@ -203,8 +248,9 @@ restart:
 		goto fail; /* end line without value */
 	    p += 2;
 	    break;
+
 	default:
-	    buf_putc(dbuf, *p++);
+	    buf_putc(&val, *p++);
 	    break;
         }
     }
@@ -215,27 +261,77 @@ fail:
     return NULL;
 }
 
-static const char *_parse_entry_key(const char *src, struct buf dbuf)
+static const char *_parse_entry_key(const char *src, struct buf dbuf, struct vcardfast_param **paramp)
 {
     const char *p = src;
 
     while (*p) {
 	switch (*p) {
 	case ':':
+	    return p+1;
 	case ';':
-	    return p;
+	    return _parse_entry_params(p+1, paramp);
+
 	case '\r':
 	    break; /* just skip */
 	case '\n':
-	    if (p[1] != ' ' && p[1] != '\t')
+	    if (p[1] == ' ' || p[1] == '\t') /* wrapped line */
+		p += 2;
+	    else if (!dbuf->len) /* no key yet?  blank intermediate lines are OK */
+		p++;
+	    else
 		goto fail; /* end line without value */
-	    p += 2;
 	    break;
+
 	default:
 	    buf_putc(dbuf, *p++);
 	    break;
 	}
     }
+
+fail:
+    /* FAILURE - finished before the end of the parameter*/
+    buf_reset(dbuf);
+
+    return NULL;
+}
+
+static const char *_parse_entry_value(const char *src, struct buf dbuf)
+{
+    const char *p = src;
+
+    while (*p) {
+	switch (*p) {
+	/* only one quoting */
+	case '\\':
+	    if (!p[1]) goto fail;
+	    if (p[1] == 'n' || p[1] == 'N') {
+		buf_putc(dbuf, '\n');
+	    }
+	    else {
+		buf_putc(dbuf, p[1]);
+	    }
+	    p += 2;
+	    break;
+
+	case '\r':
+	    break; /* just skip */
+	case '\n':
+	    if (p[1] == ' ' || p[1] == '\t') { /* wrapped line */
+		p += 2;
+		break;
+	    }
+	    return p + 1;
+
+	default:
+	    buf_putc(dbuf, *p++);
+	    break;
+	}
+    }
+
+    /* actually, reaching the end of the file isn't a total failure here */
+    return p;
+
 fail:
     /* FAILURE - finished before the end of the parameter*/
     buf_reset(dbuf);
@@ -248,35 +344,49 @@ fail:
  * 1: param key
  * 2: param value
  */
-struct const char *vcardfast_parse(const char *src, struct vcardfast_card *card, int flags)
+struct const char *vcardfast_parse(const char *src, struct vcardfast_card **cardp, int flags)
 {
-    struct buf buf = BUF_INITIALIZER;
-    struct vcardfast_card *sub;
-    struct vcardfast_param *param;
+    struct buf key = BUF_INITIALIZER;
+    struct buf val = BUF_INITIALIZER;
+    struct vcardfast_param *params = NULL;
     struct vcardfast_entry *entry;
     const char *p;
     int state = 0;
 
     memset(card, 0, sizeof(struct vcardfast_card));
 
-    while (*p)
-	p = _parse_entry_key(p, &buf);
-	if (strcmp(buf_cstring(&buf), "BEGIN")) {
-	    /* ERROR */
+    while (*p) {
+	/* skip blank lines */
+	if (*p == '\r' || *p == '\n') {
+	    p++;
+	    continue;
 	}
-	buf_reset(&buf);
-	p = _parse_entry_value(p, &buf);
-	if (buf_cstring(
-        switch (*p) {
-        case ';':
-            /* got name into buf, now to parse params */
-            MAKE(param, vcardfast_param);
-            p = _parse_param(p, param, flags);
-            continue;
-        case ':':
-            /* got entire value */
-        }
+
+	p = _parse_entry_key(p, &key, &params);
+	p = _parse_entry_value(p, &val);
+
+	if (!strcasecmp(buf_cstring(&key), "BEGIN")) {
+	    struct vcardfast_card *sub = NULL;
+	    /* shouldn't be any params */
+	    MAKE(sub, vcardfast_card);
+	    sub->type = buf_release(&val);
+	    p = vcardfast_parse(p, sub, flags);
+	    if (!p) goto fail;
+	}
+	else if (!strcasecmp(buf_cstring(&key), "END")) {
+	    if (strcasecmp(buf_cstring(&val), card->type))
+		goto fail;
+	    /* complete :) - XXX free stuff */
+	    return p;
+	}
+	else {
+	    /* it's a parameter on this one */
+	    
+	}
     }
+
+fail:
+    return NULL;
 }
 
 void vcardfast_free(vcardfast_card *card)
