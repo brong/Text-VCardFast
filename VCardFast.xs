@@ -4,20 +4,7 @@
 
 #include "ppport.h"
 
-struct vcard_param {
-    char *name;
-    char *value;
-    struct vcard_param *next;
-}
-
-struct vcard_entry {
-    char *name;
-    char *value;
-    struct vcard_param *param;
-    struct vcard_entry *next;
-}
-
-struct vcard_
+#include "vcardfast.h"
 
 MODULE = Text::VCardFast		PACKAGE = Text::VCardFast		
 
