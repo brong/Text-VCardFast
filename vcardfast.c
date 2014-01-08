@@ -339,6 +339,47 @@ fail:
     return NULL;
 }
 
+static void _vcardfast_param_free(struct vcardfast_param *param)
+{
+    struct vcardfast_param *paramnext;
+    for (; param; param = paramnext) {
+        paramnext = param->next;
+        free(param->name);
+        free(param->value);
+        free(param);
+    }
+}
+
+static void _vcardfast_entry_free(struct vcardfast_entry *entry)
+{
+    struct vcardfast_entry *entrynext;
+
+    for (; entry; entry = entrynext) {
+        entrynext = entry->next;
+	_vcardfast_param_free(entry->params);
+        free(entry->name);
+        free(entry->value);
+        free(entry);
+    }
+}
+
+void vcardfast_free(vcardfast_card *card)
+{
+    struct vcardfast_card *sub, *subnext;;
+
+    free(card->type);
+
+    _vcardfast_entry_free(card->properties);
+
+    for (sub = card->objects; sub; sub = subnext) {
+        subnext = sub->next;
+        vcardfast_free(sub);
+    }
+
+    free(card);
+}
+
+
 /* STATE MAP
  * 0: parsing key
  * 1: param key
@@ -349,11 +390,9 @@ struct const char *vcardfast_parse(const char *src, struct vcardfast_card **card
     struct buf key = BUF_INITIALIZER;
     struct buf val = BUF_INITIALIZER;
     struct vcardfast_param *params = NULL;
-    struct vcardfast_entry *entry;
+    struct vcardfast_entry *entry = NULL;
     const char *p;
     int state = 0;
-
-    memset(card, 0, sizeof(struct vcardfast_card));
 
     while (*p) {
 	/* skip blank lines */
@@ -366,14 +405,20 @@ struct const char *vcardfast_parse(const char *src, struct vcardfast_card **card
 	p = _parse_entry_value(p, &val);
 
 	if (!strcasecmp(buf_cstring(&key), "BEGIN")) {
-	    struct vcardfast_card *sub = NULL;
+	    struct vcardfast_card *card = NULL;
 	    /* shouldn't be any params */
-	    MAKE(sub, vcardfast_card);
-	    sub->type = buf_release(&val);
-	    p = vcardfast_parse(p, sub, flags);
+	    if (params) {
+		_vcardfast_param_free(params);
+		goto fail;
+	    }
+	    MAKE(card, vcardfast_card);
+	    card->type = buf_release(&val);
 	    if (!p) goto fail;
+	    *cardp = card;
+	    p = vcardfast_parse(p, &card, flags);
 	}
 	else if (!strcasecmp(buf_cstring(&key), "END")) {
+	    _vcardfast_param_free(params);
 	    if (strcasecmp(buf_cstring(&val), card->type))
 		goto fail;
 	    /* complete :) - XXX free stuff */
@@ -381,42 +426,17 @@ struct const char *vcardfast_parse(const char *src, struct vcardfast_card **card
 	}
 	else {
 	    /* it's a parameter on this one */
-	    
+	    MAKE(entry, vcardfast_entry);
+	    entry->name = buf_release(&key);
+	    entry->value = buf_release(&val);
+	    entry->params = params;
+	    *entryp = entry;
+	    entryp = &entry->next;
 	}
     }
 
 fail:
+    buf_free(&key);
+    buf_free(&val);
     return NULL;
 }
-
-void vcardfast_free(vcardfast_card *card)
-{
-    struct vcardfast_card *sub, *subnext;;
-    struct vcardfast_entry *entry, *entrynext;
-    struct vcardfast_param *param, *paramnext;
-
-    free(card->type);
-
-    for (entry = card->properties; entry; entry = entrynext) {
-        entrynext = entry->next;
-        for (param = entry->params; param; param = paramnext) {
-            paramnext = param->next;
-            free(param->name);
-            free(param->value);
-            free(param);
-        }
-        free(entry->name);
-        free(entry->value);
-        free(entry);
-    }
-
-    for (sub = card->objects; sub; sub = subnext) {
-        subnext = sub->next;
-        vcardfast_free(sub);
-    }
-
-    free(card);
-}
-
-#endif /* VCARDFAST_H */
-
