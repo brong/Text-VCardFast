@@ -4,5 +4,7 @@ MANIFEST
 ppport.h
 README
 VCardFast.xs
+vcardfast.c
+vcardfast.h
 t/Text-VCardFast.t
 lib/Text/VCardFast.pm

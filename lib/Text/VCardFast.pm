@@ -16,13 +16,13 @@ our @ISA = qw(Exporter);
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
-	
+	vcard2hash
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw(
-	
+	vcard2hash
 );
 
 our $VERSION = '0.01';
@@ -31,6 +31,12 @@ require XSLoader;
 XSLoader::load('Text::VCardFast', $VERSION);
 
 # Preloaded methods go here.
+
+sub vcard2hash {
+    my $vcard = shift;
+    my $hash = Text::VCardFast::_vcard2hash($vcard);
+    return $hash;
+}
 
 1;
 __END__

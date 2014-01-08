@@ -107,6 +107,7 @@ static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
             break;
 
 	case '\r':
+	    p++;
 	    break; /* just skip */
 	case '\n':
 	    if (p[1] != ' ' && p[1] != '\t')
@@ -136,6 +137,7 @@ static const char *_parse_param_key(const char *src, struct buf *dbuf)
 	    return p+1;
 
 	case '\r':
+	    p++;
 	    break; /* just skip */
 	case '\n':
 	    if (p[1] != ' ' && p[1] != '\t')
@@ -244,6 +246,7 @@ static const char *_parse_entry_params(const char *src, struct vcardfast_param *
 	    break;
 
 	case '\r':
+	    p++;
 	    break; /* just skip */
 	case '\n':
 	    if (p[1] != ' ' && p[1] != '\t')
@@ -267,6 +270,9 @@ static const char *_parse_entry_key(const char *src, struct buf *dbuf, struct vc
 {
     const char *p = src;
 
+    buf_reset(dbuf);
+    *paramp = NULL;
+
     while (*p) {
 	switch (*p) {
 	case ':':
@@ -275,6 +281,7 @@ static const char *_parse_entry_key(const char *src, struct buf *dbuf, struct vc
 	    return _parse_entry_params(p+1, paramp);
 
 	case '\r':
+	    p++;
 	    break; /* just skip */
 	case '\n':
 	    if (p[1] == ' ' || p[1] == '\t') /* wrapped line */
@@ -302,6 +309,8 @@ static const char *_parse_entry_value(const char *src, struct buf *dbuf)
 {
     const char *p = src;
 
+    buf_reset(dbuf);
+
     while (*p) {
 	switch (*p) {
 	/* only one quoting */
@@ -317,6 +326,7 @@ static const char *_parse_entry_value(const char *src, struct buf *dbuf)
 	    break;
 
 	case '\r':
+	    p++;
 	    break; /* just skip */
 	case '\n':
 	    if (p[1] == ' ' || p[1] == '\t') { /* wrapped line */
@@ -441,6 +451,13 @@ static const char *_parse_vcard(const char *src, struct vcardfast_card *card, in
 	}
     }
 
+    if (!card->type) {
+	/* we're done! */
+	buf_free(&key);
+	buf_free(&val);
+	return p;
+    }
+
 fail:
     _vcardfast_param_free(params);
     buf_free(&key);
@@ -464,24 +481,4 @@ struct vcardfast_card *vcardfast_parse(const char *src, int flags)
 fail:
     vcardfast_free(card);
     return NULL;
-}
-
-int main(int argv, const char **argc)
-{
-    const char *fname = argc[1];
-    struct stat sbuf;
-    int fd = open(fname, O_RDWR);
-    struct vcardfast_card *res;
-    char *data;
-
-    fstat(fd, &sbuf);
-    data = malloc(sbuf.st_size+1);
-
-    read(fd, data, sbuf.st_size);
-    data[sbuf.st_size] = '\0';
-
-    res = vcardfast_parse(data, 0);
-    printf("RES: %llu", res);
-
-    return 0;
 }
