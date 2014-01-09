@@ -609,7 +609,7 @@ static int _attrval2buf(struct buf *dbuf, int *linestartp, const char *src)
     return 0;
 }
 
-static int _param2buf(struct buf *dbuf, int *linestartp, struct vcardfast_param *param)
+static int _param2buf(struct buf *dbuf, int *linestartp, const struct vcardfast_param *param)
 {
     int r = 0;
 
@@ -623,7 +623,7 @@ static int _param2buf(struct buf *dbuf, int *linestartp, struct vcardfast_param 
     return 0;
 }
 
-static int _entry2buf(struct buf *dbuf, struct vcardfast_entry *entry, int flags)
+static int _entry2buf(struct buf *dbuf, const struct vcardfast_entry *entry, int flags)
 {
     struct buf entrybuf = BUF_INITIALIZER;
     struct vcardfast_param *param;
@@ -646,7 +646,7 @@ static int _entry2buf(struct buf *dbuf, struct vcardfast_entry *entry, int flags
     return r;
 }
 
-static int _card2buf(struct buf *dbuf, struct vcardfast_card *card, int flags)
+static int _card2buf(struct buf *dbuf, const struct vcardfast_card *card, int flags)
 {
     struct vcardfast_entry *entry;
     struct vcardfast_card *sub;
@@ -674,7 +674,7 @@ done:
     return r;
 }
 
-char *vcardfast_gen(struct vcardfast_card *card, int flags)
+char *vcardfast_gen(const struct vcardfast_card *card, int flags)
 {
     struct buf buf = BUF_INITIALIZER;
 

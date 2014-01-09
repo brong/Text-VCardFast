@@ -24,6 +24,7 @@ struct vcardfast_card {
 };
 
 extern struct vcardfast_card *vcardfast_parse(const char *src, int flags);
+extern char *vcardfast_gen(const struct vcardfast_card *src, int flags);
 extern void vcardfast_free(struct vcardfast_card *card);
 
 #endif /* VCARDFAST_H */
