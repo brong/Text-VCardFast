@@ -84,6 +84,21 @@ static void buf_reset(struct buf *buf)
     buf->len = 0;
 }
 
+static void buf_appendmap(struct buf *buf, const char *base, size_t len)
+{
+    if (len) {
+        buf_ensure(buf, len);
+        memcpy(buf->s + buf->len, base, len);
+        buf->len += len;
+    }
+}
+
+static void buf_appendcstr(struct buf *buf, const char *str)
+{
+    buf_appendmap(buf, str, strlen(str));
+}
+
+
 #define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
 
 static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
@@ -391,12 +406,6 @@ void vcardfast_free(struct vcardfast_card *card)
     free(card);
 }
 
-
-/* STATE MAP
- * 0: parsing key
- * 1: param key
- * 2: param value
- */
 static const char *_parse_vcard(const char *src, struct vcardfast_card *card, int flags)
 {
     struct buf key = BUF_INITIALIZER;
@@ -481,4 +490,195 @@ struct vcardfast_card *vcardfast_parse(const char *src, int flags)
 fail:
     vcardfast_free(card);
     return NULL;
+}
+
+static int _key2buf(struct buf *dbuf, int *linestartp, const char *src)
+{
+    const char *p;
+    size_t len = strlen(src);
+
+    /* wrap early if a key would be broken during the output */
+    if (len < 68 && len + dbuf->len - *linestartp > 70) {
+	buf_putc(dbuf, '\n');
+	*linestartp = dbuf->len;
+	buf_putc(dbuf, ' ');
+    }
+
+    for (p = src; *p; p++) {
+	if (dbuf->len - *linestartp > 70 && (*p >= 0xc0 || *p < 0x80)) {
+	    /* not a continuation character */
+	    buf_putc(dbuf, '\n');
+	    *linestartp = dbuf->len;
+	    buf_putc(dbuf, ' ');
+	}
+	if (*p >= 'a' && *p <= 'z') {
+	    buf_putc(dbuf, *p - 'a' + 'A');
+	}
+	else {
+	    buf_putc(dbuf, *p); /* no quoting in keys, they're alphanum */
+	}
+    }
+}
+
+static int _value2buf(struct buf *dbuf, int *linestartp, const char *src)
+{
+    const char *p;
+
+    for (p = src; *p; p++) {
+	if (dbuf->len - *linestartp > 70 && (*p >= 0xc0 || *p < 0x80)) {
+	    /* not a continuation character */
+	    buf_putc(dbuf, '\n');
+	    *linestartp = dbuf->len;
+	    buf_putc(dbuf, ' ');
+	}
+	switch (*p) {
+	case '\r':
+	    break; /* we just don't create these at all */
+	case '\n':
+	    buf_putc(dbuf, '\\');
+	    buf_putc(dbuf, 'n'); /* we have to handle \N, but we */
+	    break;               /* don't have to generate it    */
+	case '\\':
+	case ',':
+	    buf_putc(dbuf, '\\');
+	    /* fall through */
+	default:
+	    buf_putc(dbuf, *p);
+	    break;
+	}
+    }
+}
+
+static int needsquote(const char *val)
+{
+    const char *p;
+
+    for (p = val; *p; p++) {
+	switch (*p) {
+	case ',':
+	case ';':
+	case ':':
+	    return 1;
+	default:
+	    break;
+	}
+    }
+
+    return 0;
+}
+
+static int _attrval2buf(struct buf *dbuf, int *linestartp, const char *src)
+{
+    const char *p;
+    int isquote = needsquote(src);
+
+    if (isquote)
+	buf_putc(dbuf, '"');
+
+    for (p = src; *p; p++) {
+	if (dbuf->len - *linestartp > 70 && (*p >= 0xc0 || *p < 0x80)) {
+	    /* not a continuation character */
+	    buf_putc(dbuf, '\n');
+	    *linestartp = dbuf->len;
+	    buf_putc(dbuf, ' ');
+	}
+	switch (*p) {
+	case '\r':
+	    break; /* we just don't create these at all */
+	case '\n':
+	    buf_putc(dbuf, '^');
+	    buf_putc(dbuf, 'n');
+	    break;
+	case '^':
+	    buf_putc(dbuf, '^');
+	    buf_putc(dbuf, '^');
+	    break;
+	case '"':
+	    buf_putc(dbuf, '^');
+	    buf_putc(dbuf, '\'');
+	    break;
+	default:
+	    buf_putc(dbuf, *p);
+	    break;
+	}
+    }
+
+    if (isquote)
+	buf_putc(dbuf, '"');
+
+    return 0;
+}
+
+static int _param2buf(struct buf *dbuf, int *linestartp, struct vcardfast_param *param)
+{
+    int r = 0;
+
+    buf_putc(dbuf, ';');
+    r = _key2buf(dbuf, linestartp, param->name);
+    if (r) return r;
+    buf_putc(dbuf, '=');
+    r = _attrval2buf(dbuf, linestartp, param->value);
+    if (r) return r;
+
+    return 0;
+}
+
+static int _entry2buf(struct buf *dbuf, struct vcardfast_entry *entry, int flags)
+{
+    struct buf entrybuf = BUF_INITIALIZER;
+    struct vcardfast_param *param;
+    int linestart = dbuf->len;
+    int r = 0;
+
+    r = _key2buf(dbuf, &linestart, entry->name);
+    if (r) return r;
+
+    for (param = entry->params; param; param = param->next) {
+	r = _param2buf(dbuf, &linestart, param);
+	if (r) return r;
+    }
+
+    buf_putc(&entrybuf, ':');
+    r = _value2buf(dbuf, &linestart, entry->value);
+    if (r) return r;
+    buf_putc(dbuf, '\n');
+
+    return r;
+}
+
+static int _card2buf(struct buf *dbuf, struct vcardfast_card *card, int flags)
+{
+    struct vcardfast_entry *entry;
+    struct vcardfast_card *sub;
+    int r = 0;
+
+    buf_appendmap(dbuf, "BEGIN:", 6);
+    buf_appendcstr(dbuf, card->type);
+    buf_putc(dbuf, '\n');
+
+    for (entry = card->properties; entry; entry = entry->next) {
+	r = _entry2buf(dbuf, entry, flags);
+	if (r) goto done;
+    }
+
+    for (sub = card->objects; sub; sub = sub->next) {
+	r = _card2buf(dbuf, sub, flags);
+	if (r) goto done;
+    }
+
+    buf_appendmap(dbuf, "END:", 4);
+    buf_appendcstr(dbuf, card->type);
+    buf_putc(dbuf, '\n');
+
+done:
+    return r;
+}
+
+char *vcardfast_gen(struct vcardfast_card *card, int flags)
+{
+    struct buf buf = BUF_INITIALIZER;
+
+    int r = _card2buf(&buf, card->objects, flags);
+
+    return buf_release(&buf);
 }
