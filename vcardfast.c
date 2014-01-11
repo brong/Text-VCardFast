@@ -7,14 +7,6 @@
 
 #include "vcardfast.h"
 
-struct buf {
-    char *s;
-    size_t len;
-    size_t alloc;
-};
-
-#define BUF_INITIALIZER { NULL, 0, 0 }
-
 /* taken from cyrus, but I wrote the code originally,
    so I can relicence it -- Bron */
 static size_t roundup(size_t size)
@@ -406,26 +398,26 @@ void vcardfast_free(struct vcardfast_card *card)
     free(card);
 }
 
-static const char *_parse_vcard(const char *src, struct vcardfast_card *card, int flags)
+static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *card)
 {
-    struct buf key = BUF_INITIALIZER;
-    struct buf val = BUF_INITIALIZER;
     struct vcardfast_param *params = NULL;
     struct vcardfast_card **subp = &card->objects;
     struct vcardfast_entry **entryp = &card->properties;
-    const char *p = src;
 
-    while (*p) {
+    state->first = state->p;
+
+    while (*state->p) {
 	/* skip blank lines */
-	if (*p == '\r' || *p == '\n') {
-	    p++;
+	if (*state->p == '\r' || *state->p == '\n') {
+	    state->p++;
 	    continue;
 	}
 
-	p = _parse_entry_key(p, &key, &params);
-	if (!p) goto fail;
-	p = _parse_entry_value(p, &val);
-	if (!p) goto fail;
+	if (_parse_entry_key(&state, &params))
+	    goto fail;
+
+	if (_parse_entry_value(&state))
+	    goto fail;
 
 	if (!strcasecmp(buf_cstring(&key), "BEGIN")) {
 	    struct vcardfast_card *sub = NULL;
@@ -433,8 +425,8 @@ static const char *_parse_vcard(const char *src, struct vcardfast_card *card, in
 	    if (params) goto fail;
 	    MAKE(sub, vcardfast_card);
 	    sub->type = buf_release(&val);
-	    p = _parse_vcard(p, sub, flags);
-	    if (!p) goto fail;
+	    if (_parse_vcard(state, sub))
+		goto fail;
 	    *subp = sub;
 	    subp = &sub->next;
 	}
@@ -474,14 +466,13 @@ fail:
     return NULL;
 }
 
-struct vcardfast_card *vcardfast_parse(const char *src, int flags)
+struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state)
 {
-    const char *p = src;
     struct vcardfast_card *card = NULL;
     MAKE(card, vcardfast_card);
 
-    p = _parse_vcard(src, card, flags);
-    if (!p) goto fail;
+    if (_parse_vcard(state, card))
+	goto fail;
 
     /* XXX - check for trailing non-whitespace? */
 

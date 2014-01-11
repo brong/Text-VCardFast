@@ -61,11 +61,27 @@ static HV *_card2perl(struct vcardfast_card *card)
     return res;
 }
 
+static struct vcardfast_card *_perl2card(HV *hash)
+{
+    struct vcardfast_card *card;
+    MAKE(card, vcardfast_card);
+    SV **item;
+
+    item = hv_fetch(hash, "type", 4, 0);
+    if (item)
+	card->type = strdup(SvPV_nolen(*item));
+
+    item = hv_fetch(hash, "properties", 10, 0);
+    if (item) {
+	
+    }
+}
+
 MODULE = Text::VCardFast		PACKAGE = Text::VCardFast		
 
 SV*
 _vcard2hash(src)
-	char *src;
+	const char *src;
     PROTOTYPE: $
     CODE:
 	HV *hash;

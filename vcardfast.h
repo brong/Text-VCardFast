@@ -3,6 +3,23 @@
 
 #include <stdlib.h>
 
+struct buf {
+    char *s;
+    size_t len;
+    size_t alloc;
+};
+
+#define BUF_INITIALIZER { NULL, 0, 0 }
+
+struct vcardfast_state {
+    struct buf buf;
+    const char *base;
+    const char *itemstart;
+    const char *p;
+    char *key;
+    char *val;
+};
+
 struct vcardfast_param {
     char *name;
     char *value;
@@ -23,9 +40,11 @@ struct vcardfast_card {
     struct vcardfast_card *next;
 };
 
-extern struct vcardfast_card *vcardfast_parse(const char *src, int flags);
+extern struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state, int flags);
 extern char *vcardfast_gen(const struct vcardfast_card *src, int flags);
 extern void vcardfast_free(struct vcardfast_card *card);
+
+#define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
 
 #endif /* VCARDFAST_H */
 
