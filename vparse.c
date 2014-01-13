@@ -131,14 +131,17 @@ static int _parse_param_quoted(struct vparse_state *state)
     return PE_QSTRING_EOF;
 }
 
-static int _parse_param_key(struct vparse_state *state)
+static int _parse_param_key(struct vparse_state *state, int *haseq)
 {
     NOTESTART();
+
+    *haseq = 0;
 
     while (*state->p) {
 	switch (*state->p) {
 	case '=':
 	    state->param->name = buf_release(&state->buf);
+	    *haseq = 1;
 	    INC(1);
 	    return 0;
 
@@ -171,12 +174,13 @@ static int _parse_param_key(struct vparse_state *state)
 static int _parse_entry_params(struct vparse_state *state)
 {
     struct vparse_param **paramp = &state->entry->params;
+    int haseq = 0;
     int r;
 
 repeat:
     MAKE(state->param, vparse_param);
 
-    r = _parse_param_key(state);
+    r = _parse_param_key(state, &haseq);
     if (r) return r;
 
     NOTESTART();
@@ -221,7 +225,8 @@ repeat:
 
 	case ':':
 	    /* done - all parameters parsed */
-	    state->param->value = buf_release(&state->buf);
+	    if (haseq)
+		state->param->value = buf_release(&state->buf);
 	    *paramp = state->param;
 	    state->param = NULL;
 	    INC(1);
@@ -229,7 +234,8 @@ repeat:
 
 	case ';':
 	    /* another parameter to parse */
-	    state->param->value = buf_release(&state->buf);
+	    if (haseq)
+		state->param->value = buf_release(&state->buf);
 	    *paramp = state->param;
 	    paramp = &state->param->next;
 	    INC(1);

@@ -62,7 +62,10 @@ static HV *_card2perl(struct vparse_card *card)
 	    struct vparse_param *param;
 	    HV *prop = newHV();
 	    for (param = entry->params; param; param = param->next) {
-		hv_store(prop, param->name, strlen(param->name), newSVpv(param->value, 0), 0);
+		if (param->value)
+		    hv_store(prop, param->name, strlen(param->name), newSVpv(param->value, 0), 0);
+		else
+		    hv_store(prop, param->name, strlen(param->name), newSV(0), 0);
 	    }
 	    hv_store(item, "param", 5, newRV_noinc( (SV *) prop), 0);
 	}

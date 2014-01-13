@@ -87,7 +87,7 @@ my @expected = (
                                                           {
                                                             'value' => 'http://www.example.com/dir_photos/my_photo.gif',
                                                             'param' => {
-                                                                         'gif' => ''
+                                                                         'gif' => undef
                                                                        }
                                                           }
                                                         ],
@@ -100,8 +100,8 @@ my @expected = (
                                                           {
                                                             'value' => 'forrestgump@example.com',
                                                             'param' => {
-                                                                         'internet' => '',
-                                                                         'pref' => ''
+                                                                         'internet' => undef,
+                                                                         'pref' => undef
                                                                        }
                                                           }
                                                         ],
@@ -109,15 +109,15 @@ my @expected = (
                                                         {
                                                           'value' => '(111) 555-1212',
                                                           'param' => {
-                                                                       'voice' => '',
-                                                                       'work' => ''
+                                                                       'voice' => undef,
+                                                                       'work' => undef
                                                                      }
                                                         },
                                                         {
                                                           'value' => '(404) 555-1212',
                                                           'param' => {
-                                                                       'voice' => '',
-                                                                       'home' => ''
+                                                                       'voice' => undef,
+                                                                       'home' => undef
                                                                      }
                                                         }
                                                       ],
@@ -130,14 +130,14 @@ my @expected = (
                                                           {
                                                             'value' => '100 Waters Edge=0D=0ABaytown, LA 30314=0D=0AUnited States of America',
                                                             'param' => {
-                                                                         'work' => '',
+                                                                         'work' => undef,
                                                                          'encoding' => 'QUOTED-PRINTABLE'
                                                                        }
                                                           },
                                                           {
                                                             'value' => '42 Plantation St.=0D=0ABaytown, LA 30314=0D=0AUnited States of America',
                                                             'param' => {
-                                                                         'home' => '',
+                                                                         'home' => undef,
                                                                          'encoding' => 'QUOTED-PRINTABLE'
                                                                        }
                                                           }
@@ -159,7 +159,7 @@ my @expected = (
                                                                        'United States of America'
                                                                      ],
                                                           'param' => {
-                                                                       'work' => ''
+                                                                       'work' => undef
                                                                      }
                                                         },
                                                         {
@@ -173,7 +173,7 @@ my @expected = (
                                                                        'United States of America'
                                                                      ],
                                                           'param' => {
-                                                                       'home' => ''
+                                                                       'home' => undef
                                                                      }
                                                         }
                                                       ],
@@ -185,13 +185,242 @@ my @expected = (
                                            }
                          }
                        ]
-    },
-	{}, {}
+        },
+        {
+          'objects' => [
+                         {
+                           'type' => 'VCARD',
+                           'properties' => {
+                                             'n' => [
+                                                      {
+                                                        'value' => [
+                                                                     'Gump',
+                                                                     'Forrest',
+                                                                     'Mr.'
+                                                                   ]
+                                                      }
+                                                    ],
+                                             'org' => [
+                                                        {
+                                                          'value' => 'Bubba Gump Shrimp Co.'
+                                                        }
+                                                      ],
+                                             'photo' => [
+                                                          {
+                                                            'value' => 'http://www.example.com/dir_photos/my_photo.gif',
+                                                            'param' => {
+                                                                         'value' => 'URL',
+                                                                         'type' => 'GIF'
+                                                                       }
+                                                          }
+                                                        ],
+                                             'version' => [
+                                                            {
+                                                              'value' => '3.0'
+                                                            }
+                                                          ],
+                                             'email' => [
+                                                          {
+                                                            'value' => 'forrestgump@example.com',
+                                                            'param' => {
+                                                                         'type' => 'PREF,INTERNET'
+                                                                       }
+                                                          }
+                                                        ],
+                                             'tel' => [
+                                                        {
+                                                          'value' => '(111) 555-1212',
+                                                          'param' => {
+                                                                       'type' => 'WORK,VOICE'
+                                                                     }
+                                                        },
+                                                        {
+                                                          'value' => '(404) 555-1212',
+                                                          'param' => {
+                                                                       'type' => 'HOME,VOICE'
+                                                                     }
+                                                        }
+                                                      ],
+                                             'rev' => [
+                                                        {
+                                                          'value' => '2008-04-24T19:52:43Z'
+                                                        }
+                                                      ],
+                                             'label' => [
+                                                          {
+                                                            'value' => '100 Waters Edge
+Baytown, LA 30314
+United States of America',
+                                                            'param' => {
+                                                                         'type' => 'WORK'
+                                                                       }
+                                                          },
+                                                          {
+                                                            'value' => '42 Plantation St.
+Baytown, LA 30314
+United States of America',
+                                                            'param' => {
+                                                                         'type' => 'HOME'
+                                                                       }
+                                                          }
+                                                        ],
+                                             'title' => [
+                                                          {
+                                                            'value' => 'Shrimp Man'
+                                                          }
+                                                        ],
+                                             'adr' => [
+                                                        {
+                                                          'value' => [
+                                                                       '',
+                                                                       '',
+                                                                       '100 Waters Edge',
+                                                                       'Baytown',
+                                                                       'LA',
+                                                                       '30314',
+                                                                       'United States of America'
+                                                                     ],
+                                                          'param' => {
+                                                                       'type' => 'WORK'
+                                                                     }
+                                                        },
+                                                        {
+                                                          'value' => [
+                                                                       '',
+                                                                       '',
+                                                                       '42 Plantation St.',
+                                                                       'Baytown',
+                                                                       'LA',
+                                                                       '30314',
+                                                                       'United States of America'
+                                                                     ],
+                                                          'param' => {
+                                                                       'type' => 'HOME'
+                                                                     }
+                                                        }
+                                                      ],
+                                             'fn' => [
+                                                       {
+                                                         'value' => 'Forrest Gump'
+                                                       }
+                                                     ]
+                                           }
+                         }
+                       ]
+        },
+        {
+          'objects' => [
+                         {
+                           'type' => 'VCARD',
+                           'properties' => {
+                                             'n' => [
+                                                      {
+                                                        'value' => [
+                                                                     'Gump',
+                                                                     'Forrest',
+                                                                     '',
+                                                                     '',
+                                                                     ''
+                                                                   ]
+                                                      }
+                                                    ],
+                                             'org' => [
+                                                        {
+                                                          'value' => 'Bubba Gump Shrimp Co.'
+                                                        }
+                                                      ],
+                                             'photo' => [
+                                                          {
+                                                            'value' => 'http://www.example.com/dir_photos/my_photo.gif',
+                                                            'param' => {
+                                                                         'mediatype' => 'image/gif'
+                                                                       }
+                                                          }
+                                                        ],
+                                             'version' => [
+                                                            {
+                                                              'value' => '4.0'
+                                                            }
+                                                          ],
+                                             'email' => [
+                                                          {
+                                                            'value' => 'forrestgump@example.com'
+                                                          }
+                                                        ],
+                                             'tel' => [
+                                                        {
+                                                          'value' => 'tel:+1-111-555-1212',
+                                                          'param' => {
+                                                                       'value' => 'uri',
+                                                                       'type' => 'work,voice'
+                                                                     }
+                                                        },
+                                                        {
+                                                          'value' => 'tel:+1-404-555-1212',
+                                                          'param' => {
+                                                                       'value' => 'uri',
+                                                                       'type' => 'home,voice'
+                                                                     }
+                                                        }
+                                                      ],
+                                             'rev' => [
+                                                        {
+                                                          'value' => '20080424T195243Z'
+                                                        }
+                                                      ],
+                                             'title' => [
+                                                          {
+                                                            'value' => 'Shrimp Man'
+                                                          }
+                                                        ],
+                                             'adr' => [
+                                                        {
+                                                          'value' => [
+                                                                       '',
+                                                                       '',
+                                                                       '100 Waters Edge',
+                                                                       'Baytown',
+                                                                       'LA',
+                                                                       '30314',
+                                                                       'United States of America'
+                                                                     ],
+                                                          'param' => {
+                                                                       'label' => '100 Waters Edge
+Baytown, LA 30314
+United States of America ',
+                                                                       'type' => 'work'
+                                                                     }
+                                                        },
+                                                        {
+                                                          'value' => [
+                                                                       '',
+                                                                       '',
+                                                                       '42 Plantation St.',
+                                                                       'Baytown',
+                                                                       'LA',
+                                                                       '30314',
+                                                                       'United States of America'
+                                                                     ],
+                                                          'param' => {
+                                                                       'label' => '42 Plantation St.
+Baytown, LA 30314
+United States of America',
+                                                                       'type' => 'home'
+                                                                     }
+                                                        }
+                                                      ],
+                                             'fn' => [
+                                                       {
+                                                         'value' => 'Forrest Gump'
+                                                       }
+                                                     ]
+                                           }
+                         }
+                       ]
+        },
 );
 
 foreach my $n (0..$#cards) {
     my $hash = Text::VCardFast::vcard2hash($cards[$n], { multival => ['adr', 'n'] });
     is_deeply($hash, $expected[$n]);
-    use Data::Dumper;
-    die Dumper($hash);
 }
