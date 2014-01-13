@@ -39,7 +39,7 @@ struct vcardfast_state {
     const char *base;
     const char *itemstart;
     const char *p;
-    struct vcardfast_list *mvproperties;
+    struct vcardfast_list *multival;
 
     /* current items */
     struct vcardfast_card *card;

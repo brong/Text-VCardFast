@@ -34,7 +34,8 @@ XSLoader::load('Text::VCardFast', $VERSION);
 
 sub vcard2hash {
     my $vcard = shift;
-    my $hash = Text::VCardFast::_vcard2hash($vcard);
+    my $params = shift || {};
+    my $hash = Text::VCardFast::_vcard2hash($vcard, $params);
     return $hash;
 }
 

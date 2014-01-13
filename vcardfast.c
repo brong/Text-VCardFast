@@ -356,7 +356,7 @@ static int _parse_entry_value(struct vcardfast_state *state)
 {
     struct vcardfast_list *item;
 
-    for (item = state->mvproperties; item; item = item->next)
+    for (item = state->multival; item; item = item->next)
 	if (!strcmp(state->entry->name, item->s))
 	    return _parse_entry_multivalue(state);
 
@@ -471,17 +471,18 @@ static int _parse_entry(struct vcardfast_state *state)
 {
     int r = _parse_entry_key(state);
     if (r) return r;
-    return _parse_entry_value(state);
+    r = _parse_entry_value(state);
+    if (r) return r;
+    return 0;
 }
 
 static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *card)
 {
     struct vcardfast_card **subp = &card->objects;
     struct vcardfast_entry **entryp = &card->properties;
+    struct vcardfast_card *sub;
     const char *entrystart;
     int r;
-
-    state->p = state->base;
 
     while (*state->p) {
 	MAKE(state->entry, vcardfast_entry);
@@ -503,14 +504,15 @@ static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *ca
 		return PE_BEGIN_PARAMS;
 	    }
 
-	    MAKE(state->card, vcardfast_card);
-	    state->card->type = strdup(state->entry->v.value);
+	    MAKE(sub, vcardfast_card);
+	    sub->type = strdup(state->entry->v.value);
 	    _free_entry(state->entry);
 	    state->entry = NULL;
 	    /* we must stitch it in first, because state won't hold it */
-	    *subp = state->card;
-	    subp = &state->card->next;
-	    r = _parse_vcard(state, state->card);
+	    *subp = sub;
+	    subp = &sub->next;
+	    r = _parse_vcard(state, sub);
+	    state->card = NULL;
 	    /* special case mismatched card, the "start" was the start of
 	     * the card */
 	    if (r == PE_MISMATCHED_CARD)
@@ -560,6 +562,8 @@ int vcardfast_parse(struct vcardfast_state *state)
     int r;
 
     MAKE(card, vcardfast_card);
+
+    state->p = state->base;
 
     r = _parse_vcard(state, card);
     state->card = card;
@@ -611,3 +615,68 @@ const char *vcardfast_errstr(int err)
     }
     return "Unknown error";
 }
+
+#ifdef DEBUG
+static int _dump_card(struct vcardfast_card *card)
+{
+    struct vcardfast_entry *entry;
+    struct vcardfast_param *param;
+    struct vcardfast_card *sub;
+
+    printf("begin:%s\n", card->type);
+    for (entry = card->properties; entry; entry = entry->next) {
+	printf("%s", entry->name);
+	for (param = entry->params; param; param = param->next)
+	    printf(";%s=%s", param->name, param->value);
+	if (entry->multivalue)
+	    printf(":multivalue\n");
+	else
+	    printf(":%s\n", entry->v.value);
+    }
+    for (sub = card->objects; sub; sub = sub->next)
+	_dump_card(sub);
+    printf("end:%s\n", card->type);
+}
+
+static int _dump(struct vcardfast_card *card)
+{
+    _dump_card(card->objects);
+}
+
+int main(int argv, const char **argc)
+{
+    const char *fname = argc[1];
+    struct stat sbuf;
+    int fd = open(fname, O_RDONLY);
+    struct vcardfast_state parser;
+    char *data;
+    int r;
+
+    memset(&parser, 0, sizeof(struct vcardfast_state));
+
+    fstat(fd, &sbuf);
+    data = malloc(sbuf.st_size+1);
+
+    read(fd, data, sbuf.st_size);
+    data[sbuf.st_size] = '\0';
+
+    parser.base = data;
+    r = vcardfast_parse(&parser);
+    if (r) {
+	struct vcardfast_errorpos pos;
+	vcardfast_fillpos(&parser, &pos);
+	printf("error %s at line %d char %d: %.*s ... %.*s <--- (started at line %d char %d)\n",
+	      vcardfast_errstr(r), pos.errorline, pos.errorchar,
+	      20, parser.base + pos.startpos,
+	      20, parser.base + pos.errorpos - 20,
+	      pos.startline, pos.startchar);
+	return 1;
+    }
+
+    _dump(parser.card);
+
+    vcardfast_free(&parser);
+
+    return 0;
+}
+#endif
