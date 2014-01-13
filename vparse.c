@@ -180,10 +180,10 @@ static int _parse_entry_params(struct vparse_state *state)
 repeat:
     MAKE(state->param, vparse_param);
 
+    NOTESTART();
+
     r = _parse_param_key(state, &haseq);
     if (r) return r;
-
-    NOTESTART();
 
     /* now get the value */
     while (*state->p) {
@@ -483,9 +483,7 @@ static int _parse_entry(struct vparse_state *state)
 {
     int r = _parse_entry_key(state);
     if (r) return r;
-    r = _parse_entry_value(state);
-    if (r) return r;
-    return 0;
+    return _parse_entry_value(state);
 }
 
 static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
@@ -493,13 +491,21 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
     struct vparse_card **subp = &card->objects;
     struct vparse_entry **entryp = &card->properties;
     struct vparse_card *sub;
+    const char *cardstart = state->p;
     const char *entrystart;
     int r;
 
     while (*state->p) {
-	MAKE(state->entry, vparse_entry);
+	/* whitespace is very skippable before AND afterwards */
+	if (*state->p == '\r' || *state->p == '\n' || *state->p == ' ' || *state->p == '\t') {
+	    INC(1);
+	    continue;
+	}
 
 	entrystart = state->p;
+
+	MAKE(state->entry, vparse_entry);
+
 	r = _parse_entry(state);
 	if (r) return r;
 
@@ -524,11 +530,6 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
 	    *subp = sub;
 	    subp = &sub->next;
 	    r = _parse_vcard(state, sub);
-	    state->card = NULL;
-	    /* special case mismatched card, the "start" was the start of
-	     * the card */
-	    if (r == PE_MISMATCHED_CARD)
-		state->itemstart = entrystart;
 	    if (r) return r;
 	}
 	else if (!strcmp(state->entry->name, "end")) {
@@ -544,8 +545,12 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
 		return PE_BEGIN_PARAMS;
 	    }
 
-	    if (strcasecmp(state->entry->v.value, card->type))
+	    if (strcasecmp(state->entry->v.value, card->type)) {
+		/* special case mismatched card, the "start" was the start of
+		 * the card */
+		state->itemstart = cardstart;
 		return PE_MISMATCHED_CARD;
+	    }
 
 	    _free_entry(state->entry);
 	    state->entry = NULL;
@@ -570,19 +575,12 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
 
 int vparse_parse(struct vparse_state *state)
 {
-    struct vparse_card *card = NULL;
-    int r;
-
-    MAKE(card, vparse_card);
+    MAKE(state->card, vparse_card);
 
     state->p = state->base;
 
-    r = _parse_vcard(state, card);
-    state->card = card;
-
     /* XXX - check for trailing non-whitespace? */
-
-    return r;
+    return _parse_vcard(state, state->card);
 }
 
 void vparse_free(struct vparse_state *state)
@@ -629,7 +627,7 @@ const char *vparse_errstr(int err)
     case PE_ENTRY_MULTIGROUP:
 	return "Multiple group levels in property name";
     case PE_FINISHED_EARLY:
-	return "VCards not completed";
+	return "VCard not completed";
     case PE_KEY_EOF:
 	return "End of data while parsing parameter key";
     case PE_KEY_EOL:
