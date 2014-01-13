@@ -46,7 +46,7 @@ static HV *_card2perl(struct vcardfast_card *card)
     for (entry = card->properties; entry; entry = entry->next) {
 	HV *item = newHV();
 	size_t len = strlen(entry->name);
-	hv_store(item, "value", 5, newSVpv(entry->value, 0), 0);
+	hv_store(item, "value", 5, newSVpv(entry->v.value, 0), 0);
 	if (entry->params) {
 	    struct vcardfast_param *param;
 	    HV *prop = newHV();
@@ -64,8 +64,10 @@ static HV *_card2perl(struct vcardfast_card *card)
 static struct vcardfast_card *_perl2card(HV *hash)
 {
     struct vcardfast_card *card;
-    MAKE(card, vcardfast_card);
     SV **item;
+
+    card = malloc(sizeof(struct vcardfast_card));
+    memset(card, 0, sizeof(struct vcardfast_card));
 
     item = hv_fetch(hash, "type", 4, 0);
     if (item)
@@ -86,11 +88,8 @@ _vcard2hash(src)
     CODE:
 	HV *hash;
 	struct vcardfast_card *res;
-	int flags = 0;
 
-	/* XXX - add flags support later if required */
-
-	res = vcardfast_parse(src, flags);
+	res = vcardfast_parse(src);
 	hash = _card2perl(res);
 	vcardfast_free(res);
 

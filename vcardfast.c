@@ -91,271 +91,296 @@ static void buf_appendcstr(struct buf *buf, const char *str)
 }
 
 
+#define NOTESTART() state->itemstart = state->p
 #define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
+#define TAKEVAL() state->val = buf_release(&state->buf)
+#define PUTC(C) buf_putc(&state->buf, C)
+#define PUTLC(C) PUTC(((C) >= 'A' && (C) <= 'Z') ? (C) - 'A' + 'a' : (C))
+#define INC(I) state->p += I
 
-static const char *_parse_param_quoted(const char *src, struct buf *dbuf)
+/* just leaves it on the buffer */
+static int _parse_param_quoted(struct vcardfast_state *state)
 {
-    const char *p = src;
+    NOTESTART();
 
-    while (*p) {
-        switch (*p) {
+    while (*state->p) {
+        switch (*state->p) {
         case '"':
-            return p+1;
-        case '^':
-            if (p[1] == '\'') {
-                buf_putc(dbuf, '"');
-                p += 2;
-            }
-            else {
-                buf_putc(dbuf, '^');
-                if (p[1] == '^') p += 2;
-                else p++;
-            }
-            break;
+	    INC(1);
+	    return 0;
+
+	/* normal backslash quoting - NOTE, not strictly RFC complient,
+	 * but I figure anyone who generates one PROBABLY meant to escape
+	 * the next character because it's so common, and LABEL definitely
+	 * allows \n, so we have to handle that anyway */
+	case '\\':
+	    if (!state->p[1])
+		return PE_BACKQUOTE_EOF;
+	    if (state->p[1] == 'n' || state->p[1] == 'N')
+		PUTC('\n');
+	    else
+		PUTC(state->p[1]);
+	    INC(2);
+	    break;
+
+	/* special value quoting for doublequote and endline (RFC 6868) */
+	case '^':
+	    if (state->p[1] == '\'') {
+		PUTC('"');
+		INC(2);
+	    }
+	    else if (state->p[1] == 'n') { /* only lower case per the RFC */
+		PUTC('\n');
+		INC(2);
+	    }
+	    else if (state->p[1] == '^') {
+		PUTC('^');
+		INC(2);
+	    }
+	    else {
+		PUTC('^');
+		INC(1); /* treat next char normally */
+	    }
+	    break;
 
 	case '\r':
-	    p++;
+	    INC(1);
 	    break; /* just skip */
 	case '\n':
-	    if (p[1] != ' ' && p[1] != '\t')
-		goto fail; /* end line without value */
-	    p += 2;
+	    if (state->p[1] != ' ' && state->p[1] != '\t')
+		return PE_QSTRING_EOL;
+	    INC(2);
 	    break;
 
         default:
-            buf_putc(dbuf, *p++);
-            break;
+	    PUTC(*state->p);
+	    INC(1);
+	    break;
         }
     }
-fail:
-    /* FAILURE - finished before the end of the parameter*/
-    buf_reset(dbuf);
 
-    return NULL;
+    return PE_QSTRING_EOF;
 }
 
-static const char *_parse_param_key(const char *src, struct buf *dbuf)
+static int _parse_param_key(struct vcardfast_state *state)
 {
-    const char *p = src;
+    NOTESTART();
 
-    while (*p) {
-	switch (*p) {
+    while (*state->p) {
+	switch (*state->p) {
 	case '=':
-	    return p+1;
+	    state->param->name = buf_release(&state->buf);
+	    INC(1);
+	    return 0;
 
 	case '\r':
-	    p++;
+	    INC(1);
 	    break; /* just skip */
 	case '\n':
-	    if (p[1] != ' ' && p[1] != '\t')
-		goto fail; /* end line without value */
-	    p += 2;
+	    if (state->p[1] != ' ' && state->p[1] != '\t')
+		return PE_KEY_EOL;
+	    INC(2);
 	    break;
 
-	default:
-	    buf_putc(dbuf, *p++);
+	/* XXX - check exact legal set? */
+        default:
+	    PUTLC(*state->p);
+	    INC(1);
 	    break;
 	}
     }
-fail:
-    /* FAILURE - finished before the end of the parameter*/
-    buf_reset(dbuf);
 
-    return NULL;
+    return PE_KEY_EOF;
 }
 
-static const char *_parse_entry_params(const char *src, struct vcardfast_param **paramp)
+static int _parse_entry_params(struct vcardfast_state *state)
 {
-    struct buf key = BUF_INITIALIZER;
-    struct buf val = BUF_INITIALIZER;
-    const char *p = src;
+    struct vcardfast_param **paramp = &state->entry->params;
+    int r;
 
-    p = _parse_param_key(p, &key);
-    if (!p) goto fail;
+repeat:
+    MAKE(state->param, vcardfast_param);
 
-    while (*p) {
-        switch (*p) {
+    r = _parse_param_key(state);
+    if (r) return r;
+
+    NOTESTART();
+
+    /* now get the value */
+    while (*state->p) {
+        switch (*state->p) {
 	case '\\': /* normal backslash quoting */
-	    if (!p[1]) goto fail;
-	    if (p[1] == 'n' || p[1] == 'N')
-		buf_putc(&val, '\n');
+	    if (!state->p[1])
+		return PE_BACKQUOTE_EOF;
+	    if (state->p[1] == 'n' || state->p[1] == 'N')
+		PUTC('\n');
 	    else
-		buf_putc(&val, p[1]);
-	    p += 2;
+		PUTC(state->p[1]);
+	    INC(2);
 	    break;
-	case '^': /* special value quoting for doublequote (RFC 68xx) */
-	    if (p[1] == '\'') {
-		buf_putc(&val, '"');
-		p += 2;
+
+	case '^': /* special value quoting for doublequote (RFC 6868) */
+	    if (state->p[1] == '\'') {
+		PUTC('"');
+		INC(2);
 	    }
-	    else if (p[1] == 'n') {
-		buf_putc(&val, '\n');
-		p += 2;
+	    else if (state->p[1] == 'n') {
+		PUTC('\n');
+		INC(2);
+	    }
+	    else if (state->p[1] == '^') {
+		PUTC('^');
+		INC(2);
 	    }
 	    else {
-		buf_putc(&val, '^');
-		if (p[1] == '^') p += 2;
-		else p++;
+		PUTC('^');
+		INC(1); /* treat next char normally */
 	    }
 	    break;
+
 	case '"':
-	    p = _parse_param_quoted(p+1, &val);
-	    if (!p) goto fail;
+	    INC(1);
+	    r = _parse_param_quoted(state);
+	    if (r) return r;
 	    break;
 
 	case ':':
 	    /* done - all parameters parsed */
-	    if (paramp) {
-		struct vcardfast_param *param = NULL;
-		MAKE(param, vcardfast_param);
-		param->name = buf_release(&key);
-		param->value = buf_release(&val);
-		*paramp = param;
-	    }
-	    else {
-		buf_free(&key);
-		buf_free(&val);
-	    }
-	    return p+1;
-	    break;
+	    state->param->value = buf_release(&state->buf);
+	    *paramp = state->param;
+	    state->param = NULL;
+	    INC(1);
+	    return 0;
+
 	case ';':
 	    /* another parameter to parse */
-	    if (paramp) {
-		struct vcardfast_param *param = NULL;
-		MAKE(param, vcardfast_param);
-		param->name = buf_release(&key);
-		param->value = buf_release(&val);
-		*paramp = param;
-		paramp = &param->next;
-	    }
-	    else {
-		buf_free(&key);
-		buf_free(&val);
-	    }
-	    p = _parse_param_key(p+1, &key);
-	    if (!p) goto fail;
-	    break;
-	case ',':
-	    /* multiple values separated by a comma */
-	    if (paramp) {
-		struct vcardfast_param *param = NULL;
-		MAKE(param, vcardfast_param);
-		param->name = buf_strdup(&key);
-		param->value = buf_release(&val);
-		*paramp = param;
-		paramp = &param->next;
-	    }
-	    else {
-		/* keeping key */
-		buf_free(&val);
-	    }
-	    p++;
-	    break;
+	    state->param->value = buf_release(&state->buf);
+	    *paramp = state->param;
+	    paramp = &state->param->next;
+	    INC(1);
+	    goto repeat;
 
 	case '\r':
-	    p++;
+	    INC(1);
 	    break; /* just skip */
 	case '\n':
-	    if (p[1] != ' ' && p[1] != '\t')
-		goto fail; /* end line without value */
-	    p += 2;
+	    if (state->p[1] != ' ' && state->p[1] != '\t')
+		return PE_PARAMVALUE_EOL;
+	    INC(2);
 	    break;
 
 	default:
-	    buf_putc(&val, *p++);
+	    PUTC(*state->p);
+	    INC(1);
 	    break;
         }
     }
 
-fail:
-    buf_free(&key);
-    buf_free(&val);
-    return NULL;
+    return PE_PARAMVALUE_EOF;
 }
 
-static const char *_parse_entry_key(const char *src, struct buf *dbuf, struct vcardfast_param **paramp)
+static int _parse_entry_key(struct vcardfast_state *state)
 {
-    const char *p = src;
+    NOTESTART();
 
-    buf_reset(dbuf);
-    *paramp = NULL;
-
-    while (*p) {
-	switch (*p) {
+    while (*state->p) {
+	switch (*state->p) {
 	case ':':
-	    return p+1;
+	    state->entry->name = buf_release(&state->buf);
+	    INC(1);
+	    return 0;
+
 	case ';':
-	    return _parse_entry_params(p+1, paramp);
+	    state->entry->name = buf_release(&state->buf);
+	    INC(1);
+	    return _parse_entry_params(state);
+
+	case '.':
+	    if (state->entry->group)
+		return PE_ENTRY_MULTIGROUP;
+	    state->entry->group = buf_release(&state->buf);
+	    INC(1);
+	    break;
 
 	case '\r':
-	    p++;
+	    INC(1);
 	    break; /* just skip */
 	case '\n':
-	    if (p[1] == ' ' || p[1] == '\t') /* wrapped line */
-		p += 2;
-	    else if (!dbuf->len) /* no key yet?  blank intermediate lines are OK */
-		p++;
+	    if (state->p[1] == ' ' || state->p[1] == '\t') /* wrapped line */
+		INC(2);
+	    else if (!state->buf.len) /* no key yet?  blank intermediate lines are OK */
+		INC(1);
 	    else
-		goto fail; /* end line without value */
+		return PE_NAME_EOL;
 	    break;
 
 	default:
-	    buf_putc(dbuf, *p++);
+	    PUTLC(*state->p);
+	    INC(1);
 	    break;
 	}
     }
 
-fail:
-    /* FAILURE - finished before the end of the parameter*/
-    buf_reset(dbuf);
-
-    return NULL;
+    return PE_NAME_EOF;
 }
 
-static const char *_parse_entry_value(const char *src, struct buf *dbuf)
+static int _parse_entry_multivalue(struct vcardfast_state *state)
 {
-    const char *p = src;
+    struct vcardfast_list **valp = &state->entry->v.values;
 
-    buf_reset(dbuf);
+    state->entry->multivalue = 1;
 
-    while (*p) {
-	switch (*p) {
-	/* only one quoting */
+    NOTESTART();
+
+repeat:
+    MAKE(state->value, vcardfast_list);
+
+    while (*state->p) {
+	switch (*state->p) {
+	/* only one type of quoting */
 	case '\\':
-	    if (!p[1]) goto fail;
-	    if (p[1] == 'n' || p[1] == 'N') {
-		buf_putc(dbuf, '\n');
-	    }
-	    else {
-		buf_putc(dbuf, p[1]);
-	    }
-	    p += 2;
+	    if (!state->p[1])
+		return PE_BACKQUOTE_EOF;
+	    if (state->p[1] == 'n' || state->p[1] == 'N')
+		PUTC('\n');
+	    else
+		PUTC(state->p[1]);
+	    INC(2);
 	    break;
 
+	case ';':
+	    state->value->s = buf_release(&state->buf);
+	    *valp = state->value;
+	    valp = &state->value->next;
+	    INC(1);
+	    goto repeat;
+
 	case '\r':
-	    p++;
+	    INC(1);
 	    break; /* just skip */
 	case '\n':
-	    if (p[1] == ' ' || p[1] == '\t') { /* wrapped line */
-		p += 2;
+	    if (state->p[1] == ' ' || state->p[1] == '\t') {/* wrapped line */
+		INC(2);
 		break;
 	    }
-	    return p + 1;
+	    /* otherwise it's the end of the value */
+	    INC(1);
+	    goto out;
 
 	default:
-	    buf_putc(dbuf, *p++);
+	    PUTC(*state->p);
+	    INC(1);
 	    break;
 	}
     }
 
-    /* actually, reaching the end of the file isn't a total failure here */
-    return p;
-
-fail:
-    /* FAILURE - finished before the end of the parameter*/
-    buf_reset(dbuf);
-
-    return NULL;
+out:
+    /* reaching the end of the file isn't a failure here,
+     * it's just another type of end-of-value */
+    state->value->s = buf_release(&state->buf);
+    *valp = state->value;
+    state->value = NULL;
+    return 0;
 }
 
 static void _vcardfast_param_free(struct vcardfast_param *param)
@@ -369,33 +394,108 @@ static void _vcardfast_param_free(struct vcardfast_param *param)
     }
 }
 
-static void _vcardfast_entry_free(struct vcardfast_entry *entry)
+static int _parse_entry_value(struct vcardfast_state *state)
+{
+    struct vcardfast_list *item;
+
+    for (item = state->mvproperties; item; item = item->next)
+	if (!strcmp(state->entry->name, item->s))
+	    return _parse_entry_multivalue(state);
+
+    NOTESTART();
+
+    while (*state->p) {
+	switch (*state->p) {
+	/* only one type of quoting */
+	case '\\':
+	    if (!state->p[1])
+		return PE_BACKQUOTE_EOF;
+
+	    if (state->p[1] == 'n' || state->p[1] == 'N')
+		PUTC('\n');
+	    else
+		PUTC(state->p[1]);
+	    INC(2);
+	    break;
+
+	case '\r':
+	    INC(1);
+	    break; /* just skip */
+	case '\n':
+	    if (state->p[1] == ' ' || state->p[1] == '\t') {/* wrapped line */
+		INC(2);
+		break;
+	    }
+	    /* otherwise it's the end of the value */
+	    INC(1);
+	    goto out;
+
+	default:
+	    PUTC(*state->p);
+	    INC(1);
+	    break;
+	}
+    }
+
+out:
+    /* reaching the end of the file isn't a failure here,
+     * it's just another type of end-of-value */
+    state->entry->v.value = buf_release(&state->buf);
+    return 0;
+}
+
+/* FREE MEMORY */
+
+static void _free_list(struct vcardfast_list *list)
+{
+    struct vcardfast_list *listnext;
+
+    for (; list; list = listnext) {
+	listnext = list->next;
+	free(list->s);
+	free(list);
+    }
+}
+
+static void _free_param(struct vcardfast_param *param)
+{
+    struct vcardfast_param *paramnext;
+
+    for (; param; param = paramnext) {
+        paramnext = param->next;
+        free(param->name);
+        free(param->value);
+        free(param);
+    }
+}
+
+static void _free_entry(struct vcardfast_entry *entry)
 {
     struct vcardfast_entry *entrynext;
 
     for (; entry; entry = entrynext) {
         entrynext = entry->next;
-	_vcardfast_param_free(entry->params);
         free(entry->name);
-        free(entry->value);
+	if (entry->multivalue)
+	    _free_list(entry->v.values);
+	else
+	    free(entry->v.value);
+	_free_param(entry->params);
         free(entry);
     }
 }
 
-void vcardfast_free(struct vcardfast_card *card)
+static void _free_card(struct vcardfast_card *card)
 {
-    struct vcardfast_card *sub, *subnext;;
+    struct vcardfast_card *cardnext;
 
-    free(card->type);
-
-    _vcardfast_entry_free(card->properties);
-
-    for (sub = card->objects; sub; sub = subnext) {
-        subnext = sub->next;
-        vcardfast_free(sub);
+    for (; card; card = cardnext) {
+	cardnext = card->next;
+	free(card->type);
+	_free_entry(card->properties);
+	vcardfast_free(card->objects);
+	free(card);
     }
-
-    free(card);
 }
 
 static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *card)
@@ -403,68 +503,79 @@ static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *ca
     struct vcardfast_param *params = NULL;
     struct vcardfast_card **subp = &card->objects;
     struct vcardfast_entry **entryp = &card->properties;
+    const char *entrystart;
+    int r;
 
-    state->first = state->p;
+    state->base = state->p;
 
     while (*state->p) {
-	/* skip blank lines */
-	if (*state->p == '\r' || *state->p == '\n') {
-	    state->p++;
-	    continue;
-	}
+	MAKE(state->entry, vcardfast_entry);
 
-	if (_parse_entry_key(&state, &params))
-	    goto fail;
+	entrystart = state->p;
+	r = _parse_entry(state);
+	if (r) return r;
 
-	if (_parse_entry_value(&state))
-	    goto fail;
-
-	if (!strcasecmp(buf_cstring(&key), "BEGIN")) {
-	    struct vcardfast_card *sub = NULL;
+	if (!strcmp(state->entry->name, "begin")) {
 	    /* shouldn't be any params */
-	    if (params) goto fail;
-	    MAKE(sub, vcardfast_card);
-	    sub->type = buf_release(&val);
-	    if (_parse_vcard(state, sub))
-		goto fail;
-	    *subp = sub;
-	    subp = &sub->next;
+	    if (state->entry->params) {
+		state->itemstart = entrystart;
+		return PE_BEGIN_PARAMS;
+	    }
+	    /* only possible if some idiot passes 'begin' as
+	     * multivalue field name */
+	    if (state->entry->multivalue) {
+		state->itemstart = entrystart;
+		return PE_BEGIN_PARAMS;
+	    }
+
+	    MAKE(state->card, vcardfast_card);
+	    state->card->type = strdup(state->entry->v.value);
+	    _free_entry(state->entry);
+	    state->entry = NULL;
+	    /* we must stitch it in first, because state won't hold it */
+	    *subp = state->card;
+	    subp = &state->card->next;
+	    r = _parse_vcard(state, state->card);
+	    /* special case mismatched card, the "start" was the start of
+	     * the card */
+	    if (r == PE_MISMATCHED_CARD)
+		state->itemstart = entrystart;
+	    if (r) return r;
 	}
-	else if (!strcasecmp(buf_cstring(&key), "END")) {
-	    if (params) goto fail;
-	    if (strcasecmp(buf_cstring(&val), card->type))
-		goto fail;
-	    /* complete :) - XXX free stuff */
-	    buf_free(&key);
-	    buf_free(&val);
-	    return p;
+	else if (!strcmp(state->entry->name, "end")) {
+	    /* shouldn't be any params */
+	    if (state->entry->params) {
+		state->itemstart = entrystart;
+		return PE_BEGIN_PARAMS;
+	    }
+	    /* only possible if some idiot passes 'end' as
+	     * multivalue field name */
+	    if (state->entry->multivalue) {
+		state->itemstart = entrystart;
+		return PE_BEGIN_PARAMS;
+	    }
+
+	    if (strcasecmp(state->entry->v.value, card->type))
+		return PE_MISMATCHED_CARD;
+
+	    _free_entry(state->entry);
+	    state->entry = NULL;
+
+	    return 0;
 	}
 	else {
-	    struct vcardfast_entry *entry = NULL;
 	    /* it's a parameter on this one */
-	    MAKE(entry, vcardfast_entry);
-	    entry->name = buf_release(&key);
-	    entry->params = params;
-	    params = NULL;
-	    entry->value = buf_release(&val);
-	    *entryp = entry;
-	    entryp = &entry->next;
+	    *entryp = state->entry;
+	    entryp = &state->entry->next;
+	    state->entry = NULL;
 	}
     }
 
-    if (!card->type) {
-	/* we're done! */
-	buf_free(&key);
-	buf_free(&val);
-	return p;
-    }
-
-fail:
-    _vcardfast_param_free(params);
-    buf_free(&key);
-    buf_free(&val);
-    return NULL;
+    if (card->type)
+	return PE_FINISHED_EARLY;
 }
+
+/* PUBLIC API */
 
 struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state)
 {
@@ -483,193 +594,8 @@ fail:
     return NULL;
 }
 
-static int _key2buf(struct buf *dbuf, int *linestartp, const char *src)
+void vcardfast_free(struct vcardfast_card *card)
 {
-    const char *p;
-    size_t len = strlen(src);
-
-    /* wrap early if a key would be broken during the output */
-    if (len < 68 && len + dbuf->len - *linestartp > 70) {
-	buf_putc(dbuf, '\n');
-	*linestartp = dbuf->len;
-	buf_putc(dbuf, ' ');
-    }
-
-    for (p = src; *p; p++) {
-	if (dbuf->len - *linestartp > 70 && (*p >= 0xc0 || *p < 0x80)) {
-	    /* not a continuation character */
-	    buf_putc(dbuf, '\n');
-	    *linestartp = dbuf->len;
-	    buf_putc(dbuf, ' ');
-	}
-	if (*p >= 'a' && *p <= 'z') {
-	    buf_putc(dbuf, *p - 'a' + 'A');
-	}
-	else {
-	    buf_putc(dbuf, *p); /* no quoting in keys, they're alphanum */
-	}
-    }
+    _free_card(card);
 }
 
-static int _value2buf(struct buf *dbuf, int *linestartp, const char *src)
-{
-    const char *p;
-
-    for (p = src; *p; p++) {
-	if (dbuf->len - *linestartp > 70 && (*p >= 0xc0 || *p < 0x80)) {
-	    /* not a continuation character */
-	    buf_putc(dbuf, '\n');
-	    *linestartp = dbuf->len;
-	    buf_putc(dbuf, ' ');
-	}
-	switch (*p) {
-	case '\r':
-	    break; /* we just don't create these at all */
-	case '\n':
-	    buf_putc(dbuf, '\\');
-	    buf_putc(dbuf, 'n'); /* we have to handle \N, but we */
-	    break;               /* don't have to generate it    */
-	case '\\':
-	case ',':
-	    buf_putc(dbuf, '\\');
-	    /* fall through */
-	default:
-	    buf_putc(dbuf, *p);
-	    break;
-	}
-    }
-}
-
-static int needsquote(const char *val)
-{
-    const char *p;
-
-    for (p = val; *p; p++) {
-	switch (*p) {
-	case ',':
-	case ';':
-	case ':':
-	    return 1;
-	default:
-	    break;
-	}
-    }
-
-    return 0;
-}
-
-static int _attrval2buf(struct buf *dbuf, int *linestartp, const char *src)
-{
-    const char *p;
-    int isquote = needsquote(src);
-
-    if (isquote)
-	buf_putc(dbuf, '"');
-
-    for (p = src; *p; p++) {
-	if (dbuf->len - *linestartp > 70 && (*p >= 0xc0 || *p < 0x80)) {
-	    /* not a continuation character */
-	    buf_putc(dbuf, '\n');
-	    *linestartp = dbuf->len;
-	    buf_putc(dbuf, ' ');
-	}
-	switch (*p) {
-	case '\r':
-	    break; /* we just don't create these at all */
-	case '\n':
-	    buf_putc(dbuf, '^');
-	    buf_putc(dbuf, 'n');
-	    break;
-	case '^':
-	    buf_putc(dbuf, '^');
-	    buf_putc(dbuf, '^');
-	    break;
-	case '"':
-	    buf_putc(dbuf, '^');
-	    buf_putc(dbuf, '\'');
-	    break;
-	default:
-	    buf_putc(dbuf, *p);
-	    break;
-	}
-    }
-
-    if (isquote)
-	buf_putc(dbuf, '"');
-
-    return 0;
-}
-
-static int _param2buf(struct buf *dbuf, int *linestartp, const struct vcardfast_param *param)
-{
-    int r = 0;
-
-    buf_putc(dbuf, ';');
-    r = _key2buf(dbuf, linestartp, param->name);
-    if (r) return r;
-    buf_putc(dbuf, '=');
-    r = _attrval2buf(dbuf, linestartp, param->value);
-    if (r) return r;
-
-    return 0;
-}
-
-static int _entry2buf(struct buf *dbuf, const struct vcardfast_entry *entry, int flags)
-{
-    struct buf entrybuf = BUF_INITIALIZER;
-    struct vcardfast_param *param;
-    int linestart = dbuf->len;
-    int r = 0;
-
-    r = _key2buf(dbuf, &linestart, entry->name);
-    if (r) return r;
-
-    for (param = entry->params; param; param = param->next) {
-	r = _param2buf(dbuf, &linestart, param);
-	if (r) return r;
-    }
-
-    buf_putc(&entrybuf, ':');
-    r = _value2buf(dbuf, &linestart, entry->value);
-    if (r) return r;
-    buf_putc(dbuf, '\n');
-
-    return r;
-}
-
-static int _card2buf(struct buf *dbuf, const struct vcardfast_card *card, int flags)
-{
-    struct vcardfast_entry *entry;
-    struct vcardfast_card *sub;
-    int r = 0;
-
-    buf_appendmap(dbuf, "BEGIN:", 6);
-    buf_appendcstr(dbuf, card->type);
-    buf_putc(dbuf, '\n');
-
-    for (entry = card->properties; entry; entry = entry->next) {
-	r = _entry2buf(dbuf, entry, flags);
-	if (r) goto done;
-    }
-
-    for (sub = card->objects; sub; sub = sub->next) {
-	r = _card2buf(dbuf, sub, flags);
-	if (r) goto done;
-    }
-
-    buf_appendmap(dbuf, "END:", 4);
-    buf_appendcstr(dbuf, card->type);
-    buf_putc(dbuf, '\n');
-
-done:
-    return r;
-}
-
-char *vcardfast_gen(const struct vcardfast_card *card, int flags)
-{
-    struct buf buf = BUF_INITIALIZER;
-
-    int r = _card2buf(&buf, card->objects, flags);
-
-    return buf_release(&buf);
-}

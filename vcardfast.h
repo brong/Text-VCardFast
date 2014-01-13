@@ -11,13 +11,41 @@ struct buf {
 
 #define BUF_INITIALIZER { NULL, 0, 0 }
 
+enum parse_error {
+PE_OK = 0,
+PE_BACKQUOTE_EOF,
+PE_BEGIN_PARAMS,
+PE_ENTRY_MULTIGROUP,
+PE_FINISHED_EARLY,
+PE_KEY_EOF,
+PE_KEY_EOL,
+PE_MISMATCHED_CARD,
+PE_NAME_EOF,
+PE_NAME_EOL,
+PE_PARAMVALUE_EOF,
+PE_PARAMVALUE_EOL,
+PE_QSTRING_EOF,
+PE_QSTRING_EOL,
+PE_NUMERR /* last */
+};
+
+struct vcardfast_list {
+    char *s;
+    struct vcardfast_list *next;
+};
+
 struct vcardfast_state {
     struct buf buf;
     const char *base;
     const char *itemstart;
     const char *p;
-    char *key;
-    char *val;
+    struct vcardfast_list *mvproperties;
+
+    /* current items */
+    struct vcardfast_card *card;
+    struct vcardfast_param *param;
+    struct vcardfast_entry *entry;
+    struct vcardfast_list *value;
 };
 
 struct vcardfast_param {
@@ -27,8 +55,13 @@ struct vcardfast_param {
 };
 
 struct vcardfast_entry {
+    char *group;
     char *name;
-    char *value;
+    int multivalue;
+    union {
+	char *value;
+	struct vcardfast_list *values;
+    } v;
     struct vcardfast_param *params;
     struct vcardfast_entry *next;
 };
@@ -40,11 +73,8 @@ struct vcardfast_card {
     struct vcardfast_card *next;
 };
 
-extern struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state, int flags);
-extern char *vcardfast_gen(const struct vcardfast_card *src, int flags);
+extern struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state);
 extern void vcardfast_free(struct vcardfast_card *card);
-
-#define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
 
 #endif /* VCARDFAST_H */
 
