@@ -1,11 +1,11 @@
-/* vcardfast.c : fast vcard parser */
+/* vparse.c : fast vcard parser */
 
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
 
-#include "vcardfast.h"
+#include "vparse.h"
 
 /* taken from cyrus, but I wrote the code originally,
    so I can relicence it -- Bron */
@@ -68,7 +68,7 @@ static void buf_free(struct buf *buf)
 #define INC(I) state->p += I
 
 /* just leaves it on the buffer */
-static int _parse_param_quoted(struct vcardfast_state *state)
+static int _parse_param_quoted(struct vparse_state *state)
 {
     NOTESTART();
 
@@ -131,7 +131,7 @@ static int _parse_param_quoted(struct vcardfast_state *state)
     return PE_QSTRING_EOF;
 }
 
-static int _parse_param_key(struct vcardfast_state *state)
+static int _parse_param_key(struct vparse_state *state)
 {
     NOTESTART();
 
@@ -168,13 +168,13 @@ static int _parse_param_key(struct vcardfast_state *state)
     return PE_KEY_EOF;
 }
 
-static int _parse_entry_params(struct vcardfast_state *state)
+static int _parse_entry_params(struct vparse_state *state)
 {
-    struct vcardfast_param **paramp = &state->entry->params;
+    struct vparse_param **paramp = &state->entry->params;
     int r;
 
 repeat:
-    MAKE(state->param, vcardfast_param);
+    MAKE(state->param, vparse_param);
 
     r = _parse_param_key(state);
     if (r) return r;
@@ -254,7 +254,7 @@ repeat:
     return PE_PARAMVALUE_EOF;
 }
 
-static int _parse_entry_key(struct vcardfast_state *state)
+static int _parse_entry_key(struct vparse_state *state)
 {
     NOTESTART();
 
@@ -299,16 +299,16 @@ static int _parse_entry_key(struct vcardfast_state *state)
     return PE_NAME_EOF;
 }
 
-static int _parse_entry_multivalue(struct vcardfast_state *state)
+static int _parse_entry_multivalue(struct vparse_state *state)
 {
-    struct vcardfast_list **valp = &state->entry->v.values;
+    struct vparse_list **valp = &state->entry->v.values;
 
     state->entry->multivalue = 1;
 
     NOTESTART();
 
 repeat:
-    MAKE(state->value, vcardfast_list);
+    MAKE(state->value, vparse_list);
 
     while (*state->p) {
 	switch (*state->p) {
@@ -358,9 +358,9 @@ out:
     return 0;
 }
 
-static int _parse_entry_value(struct vcardfast_state *state)
+static int _parse_entry_value(struct vparse_state *state)
 {
-    struct vcardfast_list *item;
+    struct vparse_list *item;
 
     for (item = state->multival; item; item = item->next)
 	if (!strcmp(state->entry->name, item->s))
@@ -410,9 +410,9 @@ out:
 
 /* FREE MEMORY */
 
-static void _free_list(struct vcardfast_list *list)
+static void _free_list(struct vparse_list *list)
 {
-    struct vcardfast_list *listnext;
+    struct vparse_list *listnext;
 
     for (; list; list = listnext) {
 	listnext = list->next;
@@ -421,9 +421,9 @@ static void _free_list(struct vcardfast_list *list)
     }
 }
 
-static void _free_param(struct vcardfast_param *param)
+static void _free_param(struct vparse_param *param)
 {
-    struct vcardfast_param *paramnext;
+    struct vparse_param *paramnext;
 
     for (; param; param = paramnext) {
         paramnext = param->next;
@@ -433,9 +433,9 @@ static void _free_param(struct vcardfast_param *param)
     }
 }
 
-static void _free_entry(struct vcardfast_entry *entry)
+static void _free_entry(struct vparse_entry *entry)
 {
-    struct vcardfast_entry *entrynext;
+    struct vparse_entry *entrynext;
 
     for (; entry; entry = entrynext) {
         entrynext = entry->next;
@@ -449,9 +449,9 @@ static void _free_entry(struct vcardfast_entry *entry)
     }
 }
 
-static void _free_card(struct vcardfast_card *card)
+static void _free_card(struct vparse_card *card)
 {
-    struct vcardfast_card *cardnext;
+    struct vparse_card *cardnext;
 
     for (; card; card = cardnext) {
 	cardnext = card->next;
@@ -462,7 +462,7 @@ static void _free_card(struct vcardfast_card *card)
     }
 }
 
-static void _free_state(struct vcardfast_state *state)
+static void _free_state(struct vparse_state *state)
 {
     buf_free(&state->buf);
     _free_card(state->card);
@@ -470,10 +470,10 @@ static void _free_state(struct vcardfast_state *state)
     _free_entry(state->entry);
     _free_param(state->param);
 
-    memset(state, 0, sizeof(struct vcardfast_state));
+    memset(state, 0, sizeof(struct vparse_state));
 }
 
-static int _parse_entry(struct vcardfast_state *state)
+static int _parse_entry(struct vparse_state *state)
 {
     int r = _parse_entry_key(state);
     if (r) return r;
@@ -482,16 +482,16 @@ static int _parse_entry(struct vcardfast_state *state)
     return 0;
 }
 
-static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *card)
+static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
 {
-    struct vcardfast_card **subp = &card->objects;
-    struct vcardfast_entry **entryp = &card->properties;
-    struct vcardfast_card *sub;
+    struct vparse_card **subp = &card->objects;
+    struct vparse_entry **entryp = &card->properties;
+    struct vparse_card *sub;
     const char *entrystart;
     int r;
 
     while (*state->p) {
-	MAKE(state->entry, vcardfast_entry);
+	MAKE(state->entry, vparse_entry);
 
 	entrystart = state->p;
 	r = _parse_entry(state);
@@ -510,7 +510,7 @@ static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *ca
 		return PE_BEGIN_PARAMS;
 	    }
 
-	    MAKE(sub, vcardfast_card);
+	    MAKE(sub, vparse_card);
 	    sub->type = strdup(state->entry->v.value);
 	    _free_entry(state->entry);
 	    state->entry = NULL;
@@ -562,12 +562,12 @@ static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *ca
 
 /* PUBLIC API */
 
-int vcardfast_parse(struct vcardfast_state *state)
+int vparse_parse(struct vparse_state *state)
 {
-    struct vcardfast_card *card = NULL;
+    struct vparse_card *card = NULL;
     int r;
 
-    MAKE(card, vcardfast_card);
+    MAKE(card, vparse_card);
 
     state->p = state->base;
 
@@ -579,18 +579,18 @@ int vcardfast_parse(struct vcardfast_state *state)
     return r;
 }
 
-void vcardfast_free(struct vcardfast_state *state)
+void vparse_free(struct vparse_state *state)
 {
     _free_state(state);
 }
 
-void vcardfast_fillpos(struct vcardfast_state *state, struct vcardfast_errorpos *pos)
+void vparse_fillpos(struct vparse_state *state, struct vparse_errorpos *pos)
 {
     int l = 1;
     int c = 0;
     const char *p;
 
-    memset(pos, 0, sizeof(struct vcardfast_errorpos));
+    memset(pos, 0, sizeof(struct vparse_errorpos));
 
     pos->errorpos = state->p - state->base;
     pos->startpos = state->itemstart - state->base;
@@ -613,7 +613,7 @@ void vcardfast_fillpos(struct vcardfast_state *state, struct vcardfast_errorpos 
     pos->errorchar = c;
 }
 
-const char *vcardfast_errstr(int err)
+const char *vparse_errstr(int err)
 {
     switch(err) {
     case PE_BACKQUOTE_EOF:
@@ -647,11 +647,11 @@ const char *vcardfast_errstr(int err)
 }
 
 #ifdef DEBUG
-static int _dump_card(struct vcardfast_card *card)
+static int _dump_card(struct vparse_card *card)
 {
-    struct vcardfast_entry *entry;
-    struct vcardfast_param *param;
-    struct vcardfast_card *sub;
+    struct vparse_entry *entry;
+    struct vparse_param *param;
+    struct vparse_card *sub;
 
     printf("begin:%s\n", card->type);
     for (entry = card->properties; entry; entry = entry->next) {
@@ -668,7 +668,7 @@ static int _dump_card(struct vcardfast_card *card)
     printf("end:%s\n", card->type);
 }
 
-static int _dump(struct vcardfast_card *card)
+static int _dump(struct vparse_card *card)
 {
     _dump_card(card->objects);
 }
@@ -678,11 +678,11 @@ int main(int argv, const char **argc)
     const char *fname = argc[1];
     struct stat sbuf;
     int fd = open(fname, O_RDONLY);
-    struct vcardfast_state parser;
+    struct vparse_state parser;
     char *data;
     int r;
 
-    memset(&parser, 0, sizeof(struct vcardfast_state));
+    memset(&parser, 0, sizeof(struct vparse_state));
 
     fstat(fd, &sbuf);
     data = malloc(sbuf.st_size+1);
@@ -691,12 +691,12 @@ int main(int argv, const char **argc)
     data[sbuf.st_size] = '\0';
 
     parser.base = data;
-    r = vcardfast_parse(&parser);
+    r = vparse_parse(&parser);
     if (r) {
-	struct vcardfast_errorpos pos;
-	vcardfast_fillpos(&parser, &pos);
+	struct vparse_errorpos pos;
+	vparse_fillpos(&parser, &pos);
 	printf("error %s at line %d char %d: %.*s ... %.*s <--- (started at line %d char %d)\n",
-	      vcardfast_errstr(r), pos.errorline, pos.errorchar,
+	      vparse_errstr(r), pos.errorline, pos.errorchar,
 	      20, parser.base + pos.startpos,
 	      20, parser.base + pos.errorpos - 20,
 	      pos.startline, pos.startchar);
@@ -705,7 +705,7 @@ int main(int argv, const char **argc)
 
     _dump(parser.card);
 
-    vcardfast_free(&parser);
+    vparse_free(&parser);
 
     return 0;
 }

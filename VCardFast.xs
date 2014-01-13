@@ -4,7 +4,7 @@
 
 #include "ppport.h"
 
-#include "vcardfast.h"
+#include "vparse.h"
 
 // hv_store to array, create if not exists - from XML::Fast 0.11
 #define hv_store_aa( hv, kv, kl, sv ) \
@@ -22,10 +22,10 @@
 	} STMT_END
 
 
-static HV *_card2perl(struct vcardfast_card *card)
+static HV *_card2perl(struct vparse_card *card)
 {
-    struct vcardfast_card *sub;
-    struct vcardfast_entry *entry;
+    struct vparse_card *sub;
+    struct vparse_entry *entry;
     HV *res = newHV();
     HV *prophash = newHV();
 
@@ -49,7 +49,7 @@ static HV *_card2perl(struct vcardfast_card *card)
 
 	if (entry->multivalue) {
 	    AV *av = newAV();
-	    struct vcardfast_list *list;
+	    struct vparse_list *list;
 	    for (list = entry->v.values; list; list = list->next)
 		av_push(av, newSVpv(list->s, 0));
 	    hv_store(item, "value", 5, newRV_noinc( (SV *) av), 0);
@@ -59,7 +59,7 @@ static HV *_card2perl(struct vcardfast_card *card)
 	}
 
 	if (entry->params) {
-	    struct vcardfast_param *param;
+	    struct vparse_param *param;
 	    HV *prop = newHV();
 	    for (param = entry->params; param; param = param->next) {
 		hv_store(prop, param->name, strlen(param->name), newSVpv(param->value, 0), 0);
@@ -72,39 +72,39 @@ static HV *_card2perl(struct vcardfast_card *card)
     return res;
 }
 
-static void _die_error(struct vcardfast_state *state, int err)
+static void _die_error(struct vparse_state *state, int err)
 {
-    struct vcardfast_errorpos pos;
+    struct vparse_errorpos pos;
     const char *src = state->base;
 
-    vcardfast_fillpos(state, &pos);
+    vparse_fillpos(state, &pos);
     /* everything points into src now */
-    vcardfast_free(state);
+    vparse_free(state);
 
     if (pos.startpos <= 60) {
 	int len = pos.errorpos - pos.startpos;
 	croak("error %s at line %d char %d: %.*s ---> %.*s <---",
-	  vcardfast_errstr(err), pos.errorline, pos.errorchar,
+	  vparse_errstr(err), pos.errorline, pos.errorchar,
 	  pos.startpos, src, len, src + pos.startpos);
     }
     if (pos.errorpos - pos.startpos < 40) {
 	int len = pos.errorpos - pos.startpos;
 	croak("error %s at line %d char %d: ... %.*s ---> %.*s <---",
-	  vcardfast_errstr(err), pos.errorline, pos.errorchar,
+	  vparse_errstr(err), pos.errorline, pos.errorchar,
 	  40 - len, src + pos.errorpos - 40,
 	  len, src + pos.startpos);
     }
     croak("error %s at line %d char %d: %.*s ... %.*s <--- (started at line %d char %d)",
-	  vcardfast_errstr(err), pos.errorline, pos.errorchar,
+	  vparse_errstr(err), pos.errorline, pos.errorchar,
 	  20, src + pos.startpos,
 	  20, src + pos.errorpos - 20,
 	  pos.startline, pos.startchar);
 }
 
-static struct vcardfast_list *_get_keys(SV **key)
+static struct vparse_list *_get_keys(SV **key)
 {
-    struct vcardfast_list *item = NULL;
-    struct vcardfast_list **valp = &item;
+    struct vparse_list *item = NULL;
+    struct vparse_list **valp = &item;
 
     if (SvTYPE(SvRV(*key)) == SVt_PVAV) {
 	AV *av = (AV *) SvRV( *key );
@@ -113,7 +113,7 @@ static struct vcardfast_list *_get_keys(SV **key)
 	for (len = 0; len < avlen; len++) {
 	    val = av_fetch(av, len, 0);
 	    if (SvOK(*val) && SvPOK(*val)) {
-		struct vcardfast_list *item = malloc(sizeof(struct vcardfast_list));
+		struct vparse_list *item = malloc(sizeof(struct vparse_list));
 		item->s = strdup(SvPV_nolen(*val));
 		item->next = NULL;
 		*valp = item;
@@ -134,8 +134,8 @@ _vcard2hash(src, conf)
     PROTOTYPE: $$
     CODE:
 	HV *hash;
-	struct vcardfast_state parser;
-	struct vcardfast_list *multival = NULL;
+	struct vparse_state parser;
+	struct vparse_list *multival = NULL;
 	int r;
 	SV **key;
 
@@ -143,18 +143,18 @@ _vcard2hash(src, conf)
 	    multival = _get_keys(key);
 	}
 
-	memset(&parser, 0, sizeof(struct vcardfast_state));
+	memset(&parser, 0, sizeof(struct vparse_state));
 
 	parser.base = src;
 	parser.multival = multival;
 
-	r = vcardfast_parse(&parser);
+	r = vparse_parse(&parser);
 
 	if (r)
 	    _die_error(&parser, r);
 
 	hash = _card2perl(parser.card);
-	vcardfast_free(&parser);
+	vparse_free(&parser);
 
 	ST(0) = sv_2mortal(newRV_noinc( (SV *) hash));
 	XSRETURN(1);
