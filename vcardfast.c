@@ -142,6 +142,12 @@ static int _parse_param_key(struct vcardfast_state *state)
 	    INC(1);
 	    return 0;
 
+	case ';': /* vcard 2.1 parameter with no value */
+	case ':':
+	    state->param->name = buf_release(&state->buf);
+	    /* no INC - we need to see this char up a layer */
+	    return 0;
+
 	case '\r':
 	    INC(1);
 	    break; /* just skip */
@@ -580,7 +586,31 @@ void vcardfast_free(struct vcardfast_state *state)
 
 void vcardfast_fillpos(struct vcardfast_state *state, struct vcardfast_errorpos *pos)
 {
+    int l = 1;
+    int c = 0;
+    const char *p;
+
     memset(pos, 0, sizeof(struct vcardfast_errorpos));
+
+    pos->errorpos = state->p - state->base;
+    pos->startpos = state->itemstart - state->base;
+
+    for (p = state->base; p < state->p; p++) {
+	if (*p == '\n') {
+	    l++;
+	    c = 0;
+	}
+	else {
+	    c++;
+	}
+	if (p == state->itemstart) {
+	    pos->startline = l;
+	    pos->startchar = c;
+	}
+    }
+
+    pos->errorline = l;
+    pos->errorchar = c;
 }
 
 const char *vcardfast_errstr(int err)
