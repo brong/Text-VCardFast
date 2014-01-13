@@ -73,8 +73,19 @@ struct vcardfast_card {
     struct vcardfast_card *next;
 };
 
-extern struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state);
-extern void vcardfast_free(struct vcardfast_card *card);
+struct vcardfast_errorpos {
+    int startpos;
+    int startline;
+    int startchar;
+    int errorpos;
+    int errorline;
+    int errorchar;
+};
+
+extern int vcardfast_parse(struct vcardfast_state *state);
+extern void vcardfast_free(struct vcardfast_state *state);
+extern void vcardfast_fillpos(struct vcardfast_state *state, struct vcardfast_errorpos *pos);
+extern const char *vcardfast_errstr(int err);
 
 #endif /* VCARDFAST_H */
 

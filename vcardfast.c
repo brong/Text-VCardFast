@@ -41,13 +41,6 @@ static void buf_putc(struct buf *buf, char c)
     buf->s[buf->len++] = c;
 }
 
-static const char *buf_cstring(struct buf *buf)
-{
-    buf_ensure(buf, 1);
-    buf->s[buf->len] = '\0';
-    return buf->s;
-}
-
 static char *buf_release(struct buf *buf)
 {
     char *ret;
@@ -59,35 +52,11 @@ static char *buf_release(struct buf *buf)
     return ret;
 }
 
-static char *buf_strdup(struct buf *buf)
-{
-    return strdup(buf_cstring(buf));
-}
-
 static void buf_free(struct buf *buf)
 {
     free(buf->s);
     buf->s = NULL;
     buf->len = buf->alloc = 0;
-}
-
-static void buf_reset(struct buf *buf)
-{
-    buf->len = 0;
-}
-
-static void buf_appendmap(struct buf *buf, const char *base, size_t len)
-{
-    if (len) {
-        buf_ensure(buf, len);
-        memcpy(buf->s + buf->len, base, len);
-        buf->len += len;
-    }
-}
-
-static void buf_appendcstr(struct buf *buf, const char *str)
-{
-    buf_appendmap(buf, str, strlen(str));
 }
 
 
@@ -383,17 +352,6 @@ out:
     return 0;
 }
 
-static void _vcardfast_param_free(struct vcardfast_param *param)
-{
-    struct vcardfast_param *paramnext;
-    for (; param; param = paramnext) {
-        paramnext = param->next;
-        free(param->name);
-        free(param->value);
-        free(param);
-    }
-}
-
 static int _parse_entry_value(struct vcardfast_state *state)
 {
     struct vcardfast_list *item;
@@ -493,20 +451,37 @@ static void _free_card(struct vcardfast_card *card)
 	cardnext = card->next;
 	free(card->type);
 	_free_entry(card->properties);
-	vcardfast_free(card->objects);
+	_free_card(card->objects);
 	free(card);
     }
 }
 
+static void _free_state(struct vcardfast_state *state)
+{
+    buf_free(&state->buf);
+    _free_card(state->card);
+    _free_list(state->value);
+    _free_entry(state->entry);
+    _free_param(state->param);
+
+    memset(state, 0, sizeof(struct vcardfast_state));
+}
+
+static int _parse_entry(struct vcardfast_state *state)
+{
+    int r = _parse_entry_key(state);
+    if (r) return r;
+    return _parse_entry_value(state);
+}
+
 static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *card)
 {
-    struct vcardfast_param *params = NULL;
     struct vcardfast_card **subp = &card->objects;
     struct vcardfast_entry **entryp = &card->properties;
     const char *entrystart;
     int r;
 
-    state->base = state->p;
+    state->p = state->base;
 
     while (*state->p) {
 	MAKE(state->entry, vcardfast_entry);
@@ -573,29 +548,66 @@ static int _parse_vcard(struct vcardfast_state *state, struct vcardfast_card *ca
 
     if (card->type)
 	return PE_FINISHED_EARLY;
+
+    return 0;
 }
 
 /* PUBLIC API */
 
-struct vcardfast_card *vcardfast_parse(struct vcardfast_state *state)
+int vcardfast_parse(struct vcardfast_state *state)
 {
     struct vcardfast_card *card = NULL;
+    int r;
+
     MAKE(card, vcardfast_card);
 
-    if (_parse_vcard(state, card))
-	goto fail;
+    r = _parse_vcard(state, card);
+    state->card = card;
 
     /* XXX - check for trailing non-whitespace? */
 
-    return card;
-
-fail:
-    vcardfast_free(card);
-    return NULL;
+    return r;
 }
 
-void vcardfast_free(struct vcardfast_card *card)
+void vcardfast_free(struct vcardfast_state *state)
 {
-    _free_card(card);
+    _free_state(state);
 }
 
+void vcardfast_fillpos(struct vcardfast_state *state, struct vcardfast_errorpos *pos)
+{
+    memset(pos, 0, sizeof(struct vcardfast_errorpos));
+}
+
+const char *vcardfast_errstr(int err)
+{
+    switch(err) {
+    case PE_BACKQUOTE_EOF:
+	return "EOF after backslash";
+    case PE_BEGIN_PARAMS:
+	return "Params on BEGIN field";
+    case PE_ENTRY_MULTIGROUP:
+	return "Multiple group levels in property name";
+    case PE_FINISHED_EARLY:
+	return "VCards not completed";
+    case PE_KEY_EOF:
+	return "End of data while parsing parameter key";
+    case PE_KEY_EOL:
+	return "End of line while parsing parameter key";
+    case PE_MISMATCHED_CARD:
+	return "Closed a different card name than opened";
+    case PE_NAME_EOF:
+	return "End of data while parsing entry name";
+    case PE_NAME_EOL:
+	return "End of line while parsing entry name";
+    case PE_PARAMVALUE_EOF:
+	return "End of data while parsing parameter value";
+    case PE_PARAMVALUE_EOL:
+	return "End of line while parsing parameter value";
+    case PE_QSTRING_EOF:
+	return "End of data while parsing quoted value";
+    case PE_QSTRING_EOL:
+	return "End of line while parsing quoted value";
+    }
+    return "Unknown error";
+}

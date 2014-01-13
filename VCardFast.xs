@@ -61,22 +61,33 @@ static HV *_card2perl(struct vcardfast_card *card)
     return res;
 }
 
-static struct vcardfast_card *_perl2card(HV *hash)
+static void _die_error(struct vcardfast_state *state, int err)
 {
-    struct vcardfast_card *card;
-    SV **item;
+    struct vcardfast_errorpos pos;
+    const char *src = state->base;
 
-    card = malloc(sizeof(struct vcardfast_card));
-    memset(card, 0, sizeof(struct vcardfast_card));
+    vcardfast_fillpos(state, &pos);
+    /* everything points into src now */
+    vcardfast_free(state);
 
-    item = hv_fetch(hash, "type", 4, 0);
-    if (item)
-	card->type = strdup(SvPV_nolen(*item));
-
-    item = hv_fetch(hash, "properties", 10, 0);
-    if (item) {
-	
+    if (pos.startpos <= 60) {
+	int len = pos.errorpos - pos.startpos;
+	croak("error %s at line %d char %d: %.*s ---> %.*s <---",
+	  vcardfast_errstr(err), pos.errorline, pos.errorchar,
+	  pos.startpos, src, len, src + pos.startpos);
     }
+    if (pos.errorpos - pos.startpos < 40) {
+	int len = pos.errorpos - pos.startpos;
+	croak("error %s at line %d char %d: ... %.*s ---> %.*s <---",
+	  vcardfast_errstr(err), pos.errorline, pos.errorchar,
+	  40 - len, src + pos.errorpos - 40,
+	  len, src + pos.startpos);
+    }
+    croak("error %s at line %d char %d: %.*s ... %.*s <--- (started at line %d char %d)",
+	  vcardfast_errstr(err), pos.errorline, pos.errorchar,
+	  20, src + pos.startpos,
+	  20, src + pos.errorpos - 20,
+	  pos.startline, pos.startchar);
 }
 
 MODULE = Text::VCardFast		PACKAGE = Text::VCardFast		
@@ -87,11 +98,20 @@ _vcard2hash(src)
     PROTOTYPE: $
     CODE:
 	HV *hash;
-	struct vcardfast_card *res;
+	struct vcardfast_state parser;
+	int r;
 
-	res = vcardfast_parse(src);
-	hash = _card2perl(res);
-	vcardfast_free(res);
+	memset(&parser, 0, sizeof(struct vcardfast_state));
+
+	parser.base = src;
+
+	r = vcardfast_parse(&parser);
+
+	if (r)
+	    _die_error(&parser, r);
+
+	hash = _card2perl(parser.card);
+	vcardfast_free(&parser);
 
 	ST(0) = sv_2mortal(newRV_noinc( (SV *) hash));
 	XSRETURN(1);
