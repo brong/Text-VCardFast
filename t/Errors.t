@@ -37,5 +37,5 @@ foreach my $n (0..$#cards) {
     my $hash = eval { Text::VCardFast::vcard2hash($cards[$n], { multival => ['adr', 'n'] }) };
     my $error = $@;
     is(undef, $hash, "no return value");
-    like($error, qr/$expected[$n]/i);
+    like($error, qr/$expected[$n]/i, $error);
 }
