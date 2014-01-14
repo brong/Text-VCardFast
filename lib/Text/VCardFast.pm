@@ -38,7 +38,7 @@ XSLoader::load('Text::VCardFast', $VERSION);
 # public API
 
 sub vcard2hash { &vcard2hash_c }
-sub hash2vcard { &vcard2hash_pp }
+sub hash2vcard { &hash2vcard_pp }
 
 # Implementation
 
@@ -66,7 +66,7 @@ my %ParamOutputOrder = map { $_ => $Pos++ } @ParamOutputOrder;
 sub vcard2hash_pp {
   my $vcard = shift;
   my $params = shift || {};
-  my $hash = vcardlines2hash_pp($params, (split /\r?\n/, $vcard));
+  my $hash = vcardlines2hash_pp($params, (split /\r?\n/, decode_utf8($vcard)));
   return $hash;
 }
 
@@ -286,9 +286,9 @@ sub hash2vcardlines_pp {
         }
 
         # If it's a perl unicode string, make it utf-8 bytes
-        if (utf8::is_utf8($Value)) {
-          $Value = encode_utf8($Value);
-        }
+        #if (utf8::is_utf8($Value)) {
+          #$Value = encode_utf8($Value);
+        #}
       }
 
       $Line .= $Value;

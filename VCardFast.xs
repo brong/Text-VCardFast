@@ -67,7 +67,7 @@ static HV *_card2perl(struct vparse_card *card)
 		else
 		    hv_store(prop, param->name, strlen(param->name), newSV(0), 0);
 	    }
-	    hv_store(item, "param", 5, newRV_noinc( (SV *) prop), 0);
+	    hv_store(item, "params", 6, newRV_noinc( (SV *) prop), 0);
 	}
 	hv_store_aa(prophash, entry->name, strlen(entry->name), newRV_noinc( (SV *) item));
     }

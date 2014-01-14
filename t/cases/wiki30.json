@@ -8,9 +8,7 @@
                   "value" : [
                      "Gump",
                      "Forrest",
-                     "",
-                     "",
-                     ""
+                     "Mr."
                   ],
                   "name" : "n"
                }
@@ -26,7 +24,8 @@
             "photo" : [
                {
                   "params" : {
-                     "mediatype" : "image/gif"
+                     "value" : "URL",
+                     "type" : "GIF"
                   },
                   "value" : "http://www.example.com/dir_photos/my_photo.gif",
                   "name" : "photo"
@@ -34,12 +33,15 @@
             ],
             "version" : [
                {
-                  "value" : "4.0",
+                  "value" : "3.0",
                   "name" : "version"
                }
             ],
             "email" : [
                {
+                  "params" : {
+                     "type" : "PREF,INTERNET"
+                  },
                   "value" : "forrestgump@example.com",
                   "name" : "email"
                }
@@ -47,25 +49,39 @@
             "tel" : [
                {
                   "params" : {
-                     "value" : "uri",
-                     "type" : "work,voice"
+                     "type" : "WORK,VOICE"
                   },
-                  "value" : "tel:+1-111-555-1212",
+                  "value" : "(111) 555-1212",
                   "name" : "tel"
                },
                {
                   "params" : {
-                     "value" : "uri",
-                     "type" : "home,voice"
+                     "type" : "HOME,VOICE"
                   },
-                  "value" : "tel:+1-404-555-1212",
+                  "value" : "(404) 555-1212",
                   "name" : "tel"
                }
             ],
             "rev" : [
                {
-                  "value" : "20080424T195243Z",
+                  "value" : "2008-04-24T19:52:43Z",
                   "name" : "rev"
+               }
+            ],
+            "label" : [
+               {
+                  "params" : {
+                     "type" : "WORK"
+                  },
+                  "value" : "100 Waters Edge\nBaytown, LA 30314\nUnited States of America",
+                  "name" : "label"
+               },
+               {
+                  "params" : {
+                     "type" : "HOME"
+                  },
+                  "value" : "42 Plantation St.\nBaytown, LA 30314\nUnited States of America",
+                  "name" : "label"
                }
             ],
             "title" : [
@@ -77,8 +93,7 @@
             "adr" : [
                {
                   "params" : {
-                     "label" : "100 Waters Edge\nBaytown, LA 30314\nUnited States of America",
-                     "type" : "work"
+                     "type" : "WORK"
                   },
                   "value" : [
                      "",
@@ -93,8 +108,7 @@
                },
                {
                   "params" : {
-                     "label" : "42 Plantation St.\nBaytown, LA 30314\nUnited States of America",
-                     "type" : "home"
+                     "type" : "HOME"
                   },
                   "value" : [
                      "",
