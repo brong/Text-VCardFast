@@ -30,7 +30,7 @@ static HV *_card2perl(struct vparse_card *card)
     HV *prophash = newHV();
 
     if (card->type) {
-	hv_store(res, "type", 4, newSVpv(card->type, 0), 0);
+	hv_store(res, "type", 4, newSVpvn_utf8(card->type, strlen(card->type), 1), 0);
 	hv_store(res, "properties", 10, newRV_noinc( (SV *) prophash), 0);
     }
 
@@ -45,17 +45,16 @@ static HV *_card2perl(struct vparse_card *card)
 
     for (entry = card->properties; entry; entry = entry->next) {
 	HV *item = newHV();
-	size_t len = strlen(entry->name);
 
 	if (entry->multivalue) {
 	    AV *av = newAV();
 	    struct vparse_list *list;
 	    for (list = entry->v.values; list; list = list->next)
-		av_push(av, newSVpv(list->s, 0));
+		av_push(av, newSVpvn_utf8(list->s, strlen(list->s), 1));
 	    hv_store(item, "value", 5, newRV_noinc( (SV *) av), 0);
 	}
 	else {
-	    hv_store(item, "value", 5, newSVpv(entry->v.value, 0), 0);
+	    hv_store(item, "value", 5, newSVpvn_utf8(entry->v.value, strlen(entry->v.value), 1), 0);
 	}
 
 	if (entry->params) {
@@ -69,7 +68,7 @@ static HV *_card2perl(struct vparse_card *card)
 	    }
 	    hv_store(item, "param", 5, newRV_noinc( (SV *) prop), 0);
 	}
-	hv_store_aa(prophash, entry->name, len, newRV_noinc( (SV *) item));
+	hv_store_aa(prophash, entry->name, strlen(entry->name), newRV_noinc( (SV *) item));
     }
 
     return res;
