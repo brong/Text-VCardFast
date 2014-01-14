@@ -25,7 +25,7 @@ our @EXPORT = qw(
 	vcard2hash
 );
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 require XSLoader;
 XSLoader::load('Text::VCardFast', $VERSION);
