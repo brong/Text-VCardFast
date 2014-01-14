@@ -46,6 +46,7 @@ static HV *_card2perl(struct vparse_card *card)
     for (entry = card->properties; entry; entry = entry->next) {
 	HV *item = newHV();
 
+	hv_store(item, "name", 4, newSVpvn_utf8(entry->name, strlen(entry->name), 1), 0);
 	if (entry->multivalue) {
 	    AV *av = newAV();
 	    struct vparse_list *list;
@@ -62,7 +63,7 @@ static HV *_card2perl(struct vparse_card *card)
 	    HV *prop = newHV();
 	    for (param = entry->params; param; param = param->next) {
 		if (param->value)
-		    hv_store(prop, param->name, strlen(param->name), newSVpv(param->value, 0), 0);
+		    hv_store(prop, param->name, strlen(param->name), newSVpvn_utf8(param->value, strlen(param->value), 1), 0);
 		else
 		    hv_store(prop, param->name, strlen(param->name), newSV(0), 0);
 	    }

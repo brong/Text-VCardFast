@@ -158,7 +158,8 @@ sub vcardlines2hash_pp {
     my $Encoding = $Params->{encoding};
 
     if ($MultiFieldMap{$LName}) {
-      $Value = [ split /(?<!\\);/, $Value ];
+      # use negative 'limit' to force trailing fields
+      $Value = [ split /(?<!\\);/, $Value, -1 ];
       s#\\(.)#$UnescapeMap{$1} // $1#ge for @$Value;
 
     } elsif ($Encoding && lc $Encoding->[0] eq 'b') {
