@@ -5,3 +5,4 @@ VCardFast.c
 VCardFast.o
 blib/
 pm_to_blib
+vparse.o
