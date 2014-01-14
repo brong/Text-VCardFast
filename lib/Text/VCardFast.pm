@@ -56,7 +56,6 @@ sub vcard2hash_c {
 my %RFC6868Map = ("n" => "\n", "^" => "^", "'" => "\"");
 my %RFC6868RevMap = reverse %RFC6868Map;
 my %UnescapeMap = ("n" => "\n", "N" => "\n");
-my %MultiFieldMap = map { $_ => 1 } qw(n adr org);
 
 my $Pos = 1;
 my @PropOutputOrder = qw(version fn n nickname lang gender org title role bday anniversary email tel adr url impp);
@@ -65,11 +64,20 @@ my @ParamOutputOrder = qw(type pref);
 my %ParamOutputOrder = map { $_ => $Pos++ } @ParamOutputOrder;
 
 sub vcard2hash_pp {
-  return vcardlines2hash_pp(split /\r?\n/, $_[0]);
+  my $vcard = shift;
+  my $params = shift || {};
+  my $hash = vcardlines2hash_pp($params, (split /\r?\n/, $vcard));
+  return $hash;
 }
 
 sub vcardlines2hash_pp {
+  my $params = shift;
   local $_;
+
+  my %MultiFieldMap;
+  if ($params->{multival}) {
+    %MultiFieldMap = map { $_ => 1 } @{$params->{multival}};
+  }
 
   # rfc2425, rfc2426, rfc6350, rfc6868
 
@@ -145,6 +153,7 @@ sub vcardlines2hash_pp {
         push @{$Params->{$LPName}}, $PValue;
       }
     }
+    delete $Props{params} unless keys %{$Props{params}};
 
     my $Encoding = $Params->{encoding};
 

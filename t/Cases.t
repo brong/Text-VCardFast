@@ -35,7 +35,9 @@ foreach my $test (@tests) {
     my $phash = eval { Text::VCardFast::vcard2hash_pp($vdata, { multival => ['adr','org','n'] }) };
     ok($phash, "parsed VCARD in $test.vcf with pureperl ($@)");
 
-    is_deeply($chash, $phash, "contents of $test.vcf match from C and pureperl");
+use Data::Dumper;
+die Dumper($phash, $chash);
+    is_deeply($phash, $chash, "contents of $test.vcf match from C and pureperl");
 #    warn encode_json($chash);
 
     my $jdata = getfile("$Bin/cases/$test.json");
@@ -43,12 +45,12 @@ foreach my $test (@tests) {
     my $jhash = eval { decode_json($jdata) };
     ok($jhash, "valid JSON in $test.json ($@)");
 
-    is_deeply($chash, $jhash, "contents of $test.vcf match $test.json");
+    is_deeply($jhash, $chash, "contents of $test.vcf match $test.json");
 
     my $data = Text::VCardFast::hash2vcard($chash);
     my $rehash = Text::VCardFast::vcard2hash($data, { multival => ['adr','org','n'] });
 
-    is_deeply($chash, $rehash, "generated and reparsed data matches for $test");
+    is_deeply($rehash, $chash, "generated and reparsed data matches for $test");
 }
 
 sub getfile {
