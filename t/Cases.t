@@ -7,6 +7,7 @@
 
 use strict;
 use warnings;
+use Encode qw(encode_utf8);
 use FindBin qw($Bin);
 use Test::More;
 use JSON::XS;
@@ -23,7 +24,6 @@ if (opendir(DH, "$Bin/cases")) {
 }
 
 my $numtests = @tests;
-plan tests => ($numtests * 8) + 2;
 
 ok($numtests, "we have $numtests cards to test");
 
@@ -45,8 +45,10 @@ foreach my $test (@tests) {
 	my $coder = JSON::XS->new->utf8->pretty;
 	die $coder->encode($chash);
     }
-    my $jhash = eval { decode_json($jdata) };
-    ok($jhash, "valid JSON in $test.json ($@)");
+    my $jhash = eval { decode_json(encode_utf8($jdata)) };
+    unless (ok($jhash, "valid JSON in $test.json ($@)")) {
+	die $jdata;
+    }
 
     unless (is_deeply($jhash, $chash, "contents of $test.vcf match $test.json")) {
 	my $coder = JSON::XS->new->utf8->pretty;
@@ -60,13 +62,15 @@ foreach my $test (@tests) {
 
     unless (is_deeply($rehash, $newchash, "generated and reparsed data matches for $test")) {
 	use Data::Dumper;
-	die Dumper($rehash, $newchash, $vdata, $data);
+	die Dumper($rehash, $newchash, $data, $vdata);
     }
 }
 
+plan tests => ($numtests * 8) + 2;
+
 sub getfile {
     my $file = shift;
-    open(FH, "<$file") or return;
+    open(FH, "<:encoding(UTF-8)", $file) or return;
     local $/ = undef;
     my $res = <FH>;
     close(FH);
