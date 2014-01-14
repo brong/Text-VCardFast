@@ -30,6 +30,7 @@ ok($numtests, "we have $numtests cards to test");
 foreach my $test (@tests) {
     my $vdata = getfile("$Bin/cases/$test.vcf");
     ok($vdata, "data in $test.vcf");
+
     my $chash = eval { Text::VCardFast::vcard2hash_c($vdata, { multival => ['adr','org','n'] }) };
     ok($chash, "parsed VCARD in $test.vcf with C ($@)");
     my $phash = eval { Text::VCardFast::vcard2hash_pp($vdata, { multival => ['adr','org','n'] }) };
@@ -45,6 +46,7 @@ foreach my $test (@tests) {
 	my $coder = JSON::XS->new->utf8->pretty;
 	die $coder->encode($chash);
     }
+
     my $jhash = eval { decode_json(encode_utf8($jdata)) };
     unless (ok($jhash, "valid JSON in $test.json ($@)")) {
 	die $jdata;
