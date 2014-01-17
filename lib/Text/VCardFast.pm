@@ -164,15 +164,15 @@ sub vcardlines2hash_pp {
       # use negative 'limit' to force trailing fields
       $Value = [ split /(?<!\\);/, $Value, -1 ];
       s#\\(.)#$UnescapeMap{$1} // $1#ge for @$Value;
-
+      $Props{values} = $Value;
     } elsif ($Encoding && lc $Encoding->[0] eq 'b') {
       # Don't bother unescaping base64 value
 
+      $Props{value} = $Value;
     } else {
       $Value =~ s#\\(.)#$UnescapeMap{$1} // $1#ge;
+      $Props{value} = $Value;
     }
-
-    $Props{value} = $Value;
 
     push @{$Current->{properties}->{$LName}}, \%Props;
   }
@@ -256,7 +256,7 @@ sub hash2vcardlines_pp {
       }
       $Line .= ":";
 
-      my $Value = $_->{value};
+      my $Value = $_->{values} || $_->{value};
 
       if ($_->{binary}) {
         $Value = encode_base64($Value, '');

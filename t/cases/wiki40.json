@@ -5,7 +5,7 @@
          "properties" : {
             "n" : [
                {
-                  "value" : [
+                  "values" : [
                      "Gump",
                      "Forrest",
                      "",
@@ -17,7 +17,7 @@
             ],
             "org" : [
                {
-                  "value" : [
+                  "values" : [
                      "Bubba Gump Shrimp Co."
                   ],
                   "name" : "org"
@@ -80,7 +80,7 @@
                      "label" : "100 Waters Edge\nBaytown, LA 30314\nUnited States of America",
                      "type" : "work"
                   },
-                  "value" : [
+                  "values" : [
                      "",
                      "",
                      "100 Waters Edge",
@@ -96,7 +96,7 @@
                      "label" : "42 Plantation St.\nBaytown, LA 30314\nUnited States of America",
                      "type" : "home"
                   },
-                  "value" : [
+                  "values" : [
                      "",
                      "",
                      "42 Plantation St.",

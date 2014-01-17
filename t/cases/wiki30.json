@@ -5,7 +5,7 @@
          "properties" : {
             "n" : [
                {
-                  "value" : [
+                  "values" : [
                      "Gump",
                      "Forrest",
                      "Mr."
@@ -15,7 +15,7 @@
             ],
             "org" : [
                {
-                  "value" : [
+                  "values" : [
                      "Bubba Gump Shrimp Co."
                   ],
                   "name" : "org"
@@ -95,7 +95,7 @@
                   "params" : {
                      "type" : "WORK"
                   },
-                  "value" : [
+                  "values" : [
                      "",
                      "",
                      "100 Waters Edge",
@@ -110,7 +110,7 @@
                   "params" : {
                      "type" : "HOME"
                   },
-                  "value" : [
+                  "values" : [
                      "",
                      "",
                      "42 Plantation St.",

@@ -57,7 +57,7 @@ static HV *_card2perl(struct vparse_card *card, int is_utf8)
             struct vparse_list *list;
             for (list = entry->v.values; list; list = list->next)
                 av_push(av, str_u(list->s));
-            hv_store(item, "value", 5, newRV_noinc( (SV *) av), 0);
+            hv_store(item, "values", 6, newRV_noinc( (SV *) av), 0);
         }
         else {
             hv_store(item, "value", 5, str_u(entry->v.value), 0);
