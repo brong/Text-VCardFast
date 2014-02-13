@@ -75,56 +75,56 @@ static int _parse_param_quoted(struct vparse_state *state)
     while (*state->p) {
         switch (*state->p) {
         case '"':
-	    INC(1);
-	    return 0;
+            INC(1);
+            return 0;
 
-	/* normal backslash quoting - NOTE, not strictly RFC complient,
-	 * but I figure anyone who generates one PROBABLY meant to escape
-	 * the next character because it's so common, and LABEL definitely
-	 * allows \n, so we have to handle that anyway */
-	case '\\':
-	    if (!state->p[1])
-		return PE_BACKQUOTE_EOF;
-	    if (state->p[1] == 'n' || state->p[1] == 'N')
-		PUTC('\n');
-	    else
-		PUTC(state->p[1]);
-	    INC(2);
-	    break;
+        /* normal backslash quoting - NOTE, not strictly RFC complient,
+         * but I figure anyone who generates one PROBABLY meant to escape
+         * the next character because it's so common, and LABEL definitely
+         * allows \n, so we have to handle that anyway */
+        case '\\':
+            if (!state->p[1])
+                return PE_BACKQUOTE_EOF;
+            if (state->p[1] == 'n' || state->p[1] == 'N')
+                PUTC('\n');
+            else
+                PUTC(state->p[1]);
+            INC(2);
+            break;
 
-	/* special value quoting for doublequote and endline (RFC 6868) */
-	case '^':
-	    if (state->p[1] == '\'') {
-		PUTC('"');
-		INC(2);
-	    }
-	    else if (state->p[1] == 'n') { /* only lower case per the RFC */
-		PUTC('\n');
-		INC(2);
-	    }
-	    else if (state->p[1] == '^') {
-		PUTC('^');
-		INC(2);
-	    }
-	    else {
-		PUTC('^');
-		INC(1); /* treat next char normally */
-	    }
-	    break;
+        /* special value quoting for doublequote and endline (RFC 6868) */
+        case '^':
+            if (state->p[1] == '\'') {
+                PUTC('"');
+                INC(2);
+            }
+            else if (state->p[1] == 'n') { /* only lower case per the RFC */
+                PUTC('\n');
+                INC(2);
+            }
+            else if (state->p[1] == '^') {
+                PUTC('^');
+                INC(2);
+            }
+            else {
+                PUTC('^');
+                INC(1); /* treat next char normally */
+            }
+            break;
 
-	case '\r':
-	    INC(1);
-	    break; /* just skip */
-	case '\n':
-	    if (state->p[1] != ' ' && state->p[1] != '\t')
-		return PE_QSTRING_EOL;
-	    INC(2);
-	    break;
+        case '\r':
+            INC(1);
+            break; /* just skip */
+        case '\n':
+            if (state->p[1] != ' ' && state->p[1] != '\t')
+                return PE_QSTRING_EOL;
+            INC(2);
+            break;
 
         default:
-	    PUTC(*state->p);
-	    INC(1);
-	    break;
+            PUTC(*state->p);
+            INC(1);
+            break;
         }
     }
 
@@ -138,34 +138,34 @@ static int _parse_param_key(struct vparse_state *state, int *haseq)
     *haseq = 0;
 
     while (*state->p) {
-	switch (*state->p) {
-	case '=':
-	    state->param->name = buf_release(&state->buf);
-	    *haseq = 1;
-	    INC(1);
-	    return 0;
+        switch (*state->p) {
+        case '=':
+            state->param->name = buf_release(&state->buf);
+            *haseq = 1;
+            INC(1);
+            return 0;
 
-	case ';': /* vcard 2.1 parameter with no value */
-	case ':':
-	    state->param->name = buf_release(&state->buf);
-	    /* no INC - we need to see this char up a layer */
-	    return 0;
+        case ';': /* vcard 2.1 parameter with no value */
+        case ':':
+            state->param->name = buf_release(&state->buf);
+            /* no INC - we need to see this char up a layer */
+            return 0;
 
-	case '\r':
-	    INC(1);
-	    break; /* just skip */
-	case '\n':
-	    if (state->p[1] != ' ' && state->p[1] != '\t')
-		return PE_KEY_EOL;
-	    INC(2);
-	    break;
+        case '\r':
+            INC(1);
+            break; /* just skip */
+        case '\n':
+            if (state->p[1] != ' ' && state->p[1] != '\t')
+                return PE_KEY_EOL;
+            INC(2);
+            break;
 
-	/* XXX - check exact legal set? */
+        /* XXX - check exact legal set? */
         default:
-	    PUTLC(*state->p);
-	    INC(1);
-	    break;
-	}
+            PUTLC(*state->p);
+            INC(1);
+            break;
+        }
     }
 
     return PE_KEY_EOF;
@@ -188,72 +188,72 @@ repeat:
     /* now get the value */
     while (*state->p) {
         switch (*state->p) {
-	case '\\': /* normal backslash quoting */
-	    if (!state->p[1])
-		return PE_BACKQUOTE_EOF;
-	    if (state->p[1] == 'n' || state->p[1] == 'N')
-		PUTC('\n');
-	    else
-		PUTC(state->p[1]);
-	    INC(2);
-	    break;
+        case '\\': /* normal backslash quoting */
+            if (!state->p[1])
+                return PE_BACKQUOTE_EOF;
+            if (state->p[1] == 'n' || state->p[1] == 'N')
+                PUTC('\n');
+            else
+                PUTC(state->p[1]);
+            INC(2);
+            break;
 
-	case '^': /* special value quoting for doublequote (RFC 6868) */
-	    if (state->p[1] == '\'') {
-		PUTC('"');
-		INC(2);
-	    }
-	    else if (state->p[1] == 'n') {
-		PUTC('\n');
-		INC(2);
-	    }
-	    else if (state->p[1] == '^') {
-		PUTC('^');
-		INC(2);
-	    }
-	    else {
-		PUTC('^');
-		INC(1); /* treat next char normally */
-	    }
-	    break;
+        case '^': /* special value quoting for doublequote (RFC 6868) */
+            if (state->p[1] == '\'') {
+                PUTC('"');
+                INC(2);
+            }
+            else if (state->p[1] == 'n') {
+                PUTC('\n');
+                INC(2);
+            }
+            else if (state->p[1] == '^') {
+                PUTC('^');
+                INC(2);
+            }
+            else {
+                PUTC('^');
+                INC(1); /* treat next char normally */
+            }
+            break;
 
-	case '"':
-	    INC(1);
-	    r = _parse_param_quoted(state);
-	    if (r) return r;
-	    break;
+        case '"':
+            INC(1);
+            r = _parse_param_quoted(state);
+            if (r) return r;
+            break;
 
-	case ':':
-	    /* done - all parameters parsed */
-	    if (haseq)
-		state->param->value = buf_release(&state->buf);
-	    *paramp = state->param;
-	    state->param = NULL;
-	    INC(1);
-	    return 0;
+        case ':':
+            /* done - all parameters parsed */
+            if (haseq)
+                state->param->value = buf_release(&state->buf);
+            *paramp = state->param;
+            state->param = NULL;
+            INC(1);
+            return 0;
 
-	case ';':
-	    /* another parameter to parse */
-	    if (haseq)
-		state->param->value = buf_release(&state->buf);
-	    *paramp = state->param;
-	    paramp = &state->param->next;
-	    INC(1);
-	    goto repeat;
+        case ';':
+            /* another parameter to parse */
+            if (haseq)
+                state->param->value = buf_release(&state->buf);
+            *paramp = state->param;
+            paramp = &state->param->next;
+            INC(1);
+            goto repeat;
 
-	case '\r':
-	    INC(1);
-	    break; /* just skip */
-	case '\n':
-	    if (state->p[1] != ' ' && state->p[1] != '\t')
-		return PE_PARAMVALUE_EOL;
-	    INC(2);
-	    break;
+        case '\r':
+            INC(1);
+            break; /* just skip */
+        case '\n':
+            if (state->p[1] != ' ' && state->p[1] != '\t')
+                return PE_PARAMVALUE_EOL;
+            INC(2);
+            break;
 
-	default:
-	    PUTC(*state->p);
-	    INC(1);
-	    break;
+        default:
+            PUTC(*state->p);
+            INC(1);
+            break;
         }
     }
 
@@ -265,41 +265,41 @@ static int _parse_entry_key(struct vparse_state *state)
     NOTESTART();
 
     while (*state->p) {
-	switch (*state->p) {
-	case ':':
-	    state->entry->name = buf_release(&state->buf);
-	    INC(1);
-	    return 0;
+        switch (*state->p) {
+        case ':':
+            state->entry->name = buf_release(&state->buf);
+            INC(1);
+            return 0;
 
-	case ';':
-	    state->entry->name = buf_release(&state->buf);
-	    INC(1);
-	    return _parse_entry_params(state);
+        case ';':
+            state->entry->name = buf_release(&state->buf);
+            INC(1);
+            return _parse_entry_params(state);
 
-	case '.':
-	    if (state->entry->group)
-		return PE_ENTRY_MULTIGROUP;
-	    state->entry->group = buf_release(&state->buf);
-	    INC(1);
-	    break;
+        case '.':
+            if (state->entry->group)
+                return PE_ENTRY_MULTIGROUP;
+            state->entry->group = buf_release(&state->buf);
+            INC(1);
+            break;
 
-	case '\r':
-	    INC(1);
-	    break; /* just skip */
-	case '\n':
-	    if (state->p[1] == ' ' || state->p[1] == '\t') /* wrapped line */
-		INC(2);
-	    else if (!state->buf.len) /* no key yet?  blank intermediate lines are OK */
-		INC(1);
-	    else
-		return PE_NAME_EOL;
-	    break;
+        case '\r':
+            INC(1);
+            break; /* just skip */
+        case '\n':
+            if (state->p[1] == ' ' || state->p[1] == '\t') /* wrapped line */
+                INC(2);
+            else if (!state->buf.len) /* no key yet?  blank intermediate lines are OK */
+                INC(1);
+            else
+                return PE_NAME_EOL;
+            break;
 
-	default:
-	    PUTLC(*state->p);
-	    INC(1);
-	    break;
-	}
+        default:
+            PUTLC(*state->p);
+            INC(1);
+            break;
+        }
     }
 
     return PE_NAME_EOF;
@@ -317,42 +317,42 @@ repeat:
     MAKE(state->value, vparse_list);
 
     while (*state->p) {
-	switch (*state->p) {
-	/* only one type of quoting */
-	case '\\':
-	    if (!state->p[1])
-		return PE_BACKQUOTE_EOF;
-	    if (state->p[1] == 'n' || state->p[1] == 'N')
-		PUTC('\n');
-	    else
-		PUTC(state->p[1]);
-	    INC(2);
-	    break;
+        switch (*state->p) {
+        /* only one type of quoting */
+        case '\\':
+            if (!state->p[1])
+                return PE_BACKQUOTE_EOF;
+            if (state->p[1] == 'n' || state->p[1] == 'N')
+                PUTC('\n');
+            else
+                PUTC(state->p[1]);
+            INC(2);
+            break;
 
-	case ';':
-	    state->value->s = buf_release(&state->buf);
-	    *valp = state->value;
-	    valp = &state->value->next;
-	    INC(1);
-	    goto repeat;
+        case ';':
+            state->value->s = buf_release(&state->buf);
+            *valp = state->value;
+            valp = &state->value->next;
+            INC(1);
+            goto repeat;
 
-	case '\r':
-	    INC(1);
-	    break; /* just skip */
-	case '\n':
-	    if (state->p[1] == ' ' || state->p[1] == '\t') {/* wrapped line */
-		INC(2);
-		break;
-	    }
-	    /* otherwise it's the end of the value */
-	    INC(1);
-	    goto out;
+        case '\r':
+            INC(1);
+            break; /* just skip */
+        case '\n':
+            if (state->p[1] == ' ' || state->p[1] == '\t') {/* wrapped line */
+                INC(2);
+                break;
+            }
+            /* otherwise it's the end of the value */
+            INC(1);
+            goto out;
 
-	default:
-	    PUTC(*state->p);
-	    INC(1);
-	    break;
-	}
+        default:
+            PUTC(*state->p);
+            INC(1);
+            break;
+        }
     }
 
 out:
@@ -369,42 +369,42 @@ static int _parse_entry_value(struct vparse_state *state)
     struct vparse_list *item;
 
     for (item = state->multival; item; item = item->next)
-	if (!strcmp(state->entry->name, item->s))
-	    return _parse_entry_multivalue(state);
+        if (!strcmp(state->entry->name, item->s))
+            return _parse_entry_multivalue(state);
 
     NOTESTART();
 
     while (*state->p) {
-	switch (*state->p) {
-	/* only one type of quoting */
-	case '\\':
-	    if (!state->p[1])
-		return PE_BACKQUOTE_EOF;
+        switch (*state->p) {
+        /* only one type of quoting */
+        case '\\':
+            if (!state->p[1])
+                return PE_BACKQUOTE_EOF;
 
-	    if (state->p[1] == 'n' || state->p[1] == 'N')
-		PUTC('\n');
-	    else
-		PUTC(state->p[1]);
-	    INC(2);
-	    break;
+            if (state->p[1] == 'n' || state->p[1] == 'N')
+                PUTC('\n');
+            else
+                PUTC(state->p[1]);
+            INC(2);
+            break;
 
-	case '\r':
-	    INC(1);
-	    break; /* just skip */
-	case '\n':
-	    if (state->p[1] == ' ' || state->p[1] == '\t') {/* wrapped line */
-		INC(2);
-		break;
-	    }
-	    /* otherwise it's the end of the value */
-	    INC(1);
-	    goto out;
+        case '\r':
+            INC(1);
+            break; /* just skip */
+        case '\n':
+            if (state->p[1] == ' ' || state->p[1] == '\t') {/* wrapped line */
+                INC(2);
+                break;
+            }
+            /* otherwise it's the end of the value */
+            INC(1);
+            goto out;
 
-	default:
-	    PUTC(*state->p);
-	    INC(1);
-	    break;
-	}
+        default:
+            PUTC(*state->p);
+            INC(1);
+            break;
+        }
     }
 
 out:
@@ -421,9 +421,9 @@ static void _free_list(struct vparse_list *list)
     struct vparse_list *listnext;
 
     for (; list; list = listnext) {
-	listnext = list->next;
-	free(list->s);
-	free(list);
+        listnext = list->next;
+        free(list->s);
+        free(list);
     }
 }
 
@@ -446,11 +446,12 @@ static void _free_entry(struct vparse_entry *entry)
     for (; entry; entry = entrynext) {
         entrynext = entry->next;
         free(entry->name);
-	if (entry->multivalue)
-	    _free_list(entry->v.values);
-	else
-	    free(entry->v.value);
-	_free_param(entry->params);
+        free(entry->group);
+        if (entry->multivalue)
+            _free_list(entry->v.values);
+        else
+            free(entry->v.value);
+        _free_param(entry->params);
         free(entry);
     }
 }
@@ -460,11 +461,11 @@ static void _free_card(struct vparse_card *card)
     struct vparse_card *cardnext;
 
     for (; card; card = cardnext) {
-	cardnext = card->next;
-	free(card->type);
-	_free_entry(card->properties);
-	_free_card(card->objects);
-	free(card);
+        cardnext = card->next;
+        free(card->type);
+        _free_entry(card->properties);
+        _free_card(card->objects);
+        free(card);
     }
 }
 
@@ -496,77 +497,77 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
     int r;
 
     while (*state->p) {
-	/* whitespace is very skippable before AND afterwards */
-	if (*state->p == '\r' || *state->p == '\n' || *state->p == ' ' || *state->p == '\t') {
-	    INC(1);
-	    continue;
-	}
+        /* whitespace is very skippable before AND afterwards */
+        if (*state->p == '\r' || *state->p == '\n' || *state->p == ' ' || *state->p == '\t') {
+            INC(1);
+            continue;
+        }
 
-	entrystart = state->p;
+        entrystart = state->p;
 
-	MAKE(state->entry, vparse_entry);
+        MAKE(state->entry, vparse_entry);
 
-	r = _parse_entry(state);
-	if (r) return r;
+        r = _parse_entry(state);
+        if (r) return r;
 
-	if (!strcmp(state->entry->name, "begin")) {
-	    /* shouldn't be any params */
-	    if (state->entry->params) {
-		state->itemstart = entrystart;
-		return PE_BEGIN_PARAMS;
-	    }
-	    /* only possible if some idiot passes 'begin' as
-	     * multivalue field name */
-	    if (state->entry->multivalue) {
-		state->itemstart = entrystart;
-		return PE_BEGIN_PARAMS;
-	    }
+        if (!strcmp(state->entry->name, "begin")) {
+            /* shouldn't be any params */
+            if (state->entry->params) {
+                state->itemstart = entrystart;
+                return PE_BEGIN_PARAMS;
+            }
+            /* only possible if some idiot passes 'begin' as
+             * multivalue field name */
+            if (state->entry->multivalue) {
+                state->itemstart = entrystart;
+                return PE_BEGIN_PARAMS;
+            }
 
-	    MAKE(sub, vparse_card);
-	    sub->type = strdup(state->entry->v.value);
-	    _free_entry(state->entry);
-	    state->entry = NULL;
-	    /* we must stitch it in first, because state won't hold it */
-	    *subp = sub;
-	    subp = &sub->next;
-	    r = _parse_vcard(state, sub);
-	    if (r) return r;
-	}
-	else if (!strcmp(state->entry->name, "end")) {
-	    /* shouldn't be any params */
-	    if (state->entry->params) {
-		state->itemstart = entrystart;
-		return PE_BEGIN_PARAMS;
-	    }
-	    /* only possible if some idiot passes 'end' as
-	     * multivalue field name */
-	    if (state->entry->multivalue) {
-		state->itemstart = entrystart;
-		return PE_BEGIN_PARAMS;
-	    }
+            MAKE(sub, vparse_card);
+            sub->type = strdup(state->entry->v.value);
+            _free_entry(state->entry);
+            state->entry = NULL;
+            /* we must stitch it in first, because state won't hold it */
+            *subp = sub;
+            subp = &sub->next;
+            r = _parse_vcard(state, sub);
+            if (r) return r;
+        }
+        else if (!strcmp(state->entry->name, "end")) {
+            /* shouldn't be any params */
+            if (state->entry->params) {
+                state->itemstart = entrystart;
+                return PE_BEGIN_PARAMS;
+            }
+            /* only possible if some idiot passes 'end' as
+             * multivalue field name */
+            if (state->entry->multivalue) {
+                state->itemstart = entrystart;
+                return PE_BEGIN_PARAMS;
+            }
 
-	    if (strcasecmp(state->entry->v.value, card->type)) {
-		/* special case mismatched card, the "start" was the start of
-		 * the card */
-		state->itemstart = cardstart;
-		return PE_MISMATCHED_CARD;
-	    }
+            if (strcasecmp(state->entry->v.value, card->type)) {
+                /* special case mismatched card, the "start" was the start of
+                 * the card */
+                state->itemstart = cardstart;
+                return PE_MISMATCHED_CARD;
+            }
 
-	    _free_entry(state->entry);
-	    state->entry = NULL;
+            _free_entry(state->entry);
+            state->entry = NULL;
 
-	    return 0;
-	}
-	else {
-	    /* it's a parameter on this one */
-	    *entryp = state->entry;
-	    entryp = &state->entry->next;
-	    state->entry = NULL;
-	}
+            return 0;
+        }
+        else {
+            /* it's a parameter on this one */
+            *entryp = state->entry;
+            entryp = &state->entry->next;
+            state->entry = NULL;
+        }
     }
 
     if (card->type)
-	return PE_FINISHED_EARLY;
+        return PE_FINISHED_EARLY;
 
     return 0;
 }
@@ -600,17 +601,17 @@ void vparse_fillpos(struct vparse_state *state, struct vparse_errorpos *pos)
     pos->startpos = state->itemstart - state->base;
 
     for (p = state->base; p < state->p; p++) {
-	if (*p == '\n') {
-	    l++;
-	    c = 0;
-	}
-	else {
-	    c++;
-	}
-	if (p == state->itemstart) {
-	    pos->startline = l;
-	    pos->startchar = c;
-	}
+        if (*p == '\n') {
+            l++;
+            c = 0;
+        }
+        else {
+            c++;
+        }
+        if (p == state->itemstart) {
+            pos->startline = l;
+            pos->startchar = c;
+        }
     }
 
     pos->errorline = l;
@@ -621,31 +622,31 @@ const char *vparse_errstr(int err)
 {
     switch(err) {
     case PE_BACKQUOTE_EOF:
-	return "EOF after backslash";
+        return "EOF after backslash";
     case PE_BEGIN_PARAMS:
-	return "Params on BEGIN field";
+        return "Params on BEGIN field";
     case PE_ENTRY_MULTIGROUP:
-	return "Multiple group levels in property name";
+        return "Multiple group levels in property name";
     case PE_FINISHED_EARLY:
-	return "VCard not completed";
+        return "VCard not completed";
     case PE_KEY_EOF:
-	return "End of data while parsing parameter key";
+        return "End of data while parsing parameter key";
     case PE_KEY_EOL:
-	return "End of line while parsing parameter key";
+        return "End of line while parsing parameter key";
     case PE_MISMATCHED_CARD:
-	return "Closed a different card name than opened";
+        return "Closed a different card name than opened";
     case PE_NAME_EOF:
-	return "End of data while parsing entry name";
+        return "End of data while parsing entry name";
     case PE_NAME_EOL:
-	return "End of line while parsing entry name";
+        return "End of line while parsing entry name";
     case PE_PARAMVALUE_EOF:
-	return "End of data while parsing parameter value";
+        return "End of data while parsing parameter value";
     case PE_PARAMVALUE_EOL:
-	return "End of line while parsing parameter value";
+        return "End of line while parsing parameter value";
     case PE_QSTRING_EOF:
-	return "End of data while parsing quoted value";
+        return "End of data while parsing quoted value";
     case PE_QSTRING_EOL:
-	return "End of line while parsing quoted value";
+        return "End of line while parsing quoted value";
     }
     return "Unknown error";
 }
@@ -659,16 +660,16 @@ static int _dump_card(struct vparse_card *card)
 
     printf("begin:%s\n", card->type);
     for (entry = card->properties; entry; entry = entry->next) {
-	printf("%s", entry->name);
-	for (param = entry->params; param; param = param->next)
-	    printf(";%s=%s", param->name, param->value);
-	if (entry->multivalue)
-	    printf(":multivalue\n");
-	else
-	    printf(":%s\n", entry->v.value);
+        printf("%s", entry->name);
+        for (param = entry->params; param; param = param->next)
+            printf(";%s=%s", param->name, param->value);
+        if (entry->multivalue)
+            printf(":multivalue\n");
+        else
+            printf(":%s\n", entry->v.value);
     }
     for (sub = card->objects; sub; sub = sub->next)
-	_dump_card(sub);
+        _dump_card(sub);
     printf("end:%s\n", card->type);
 }
 
@@ -697,14 +698,14 @@ int main(int argv, const char **argc)
     parser.base = data;
     r = vparse_parse(&parser);
     if (r) {
-	struct vparse_errorpos pos;
-	vparse_fillpos(&parser, &pos);
-	printf("error %s at line %d char %d: %.*s ... %.*s <--- (started at line %d char %d)\n",
-	      vparse_errstr(r), pos.errorline, pos.errorchar,
-	      20, parser.base + pos.startpos,
-	      20, parser.base + pos.errorpos - 20,
-	      pos.startline, pos.startchar);
-	return 1;
+        struct vparse_errorpos pos;
+        vparse_fillpos(&parser, &pos);
+        printf("error %s at line %d char %d: %.*s ... %.*s <--- (started at line %d char %d)\n",
+              vparse_errstr(r), pos.errorline, pos.errorchar,
+              20, parser.base + pos.startpos,
+              20, parser.base + pos.errorpos - 20,
+              pos.startline, pos.startchar);
+        return 1;
     }
 
     _dump(parser.card);
