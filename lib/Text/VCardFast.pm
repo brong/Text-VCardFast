@@ -324,45 +324,96 @@ sub foldline {
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
-
 =head1 NAME
 
-Text::VCardFast - Perl extension for blah blah blah
+Text::VCardFast - Perl extension for very fast parsing of VCards
 
 =head1 SYNOPSIS
 
   use Text::VCardFast;
-  blah blah blah
+
+  my $hash = Text::VCard::vcard2hash($card, multival => ['adr', 'org', 'n']);
+  my $card = Text::VCard::hash2vcard($hash, "\r\n");
 
 =head1 DESCRIPTION
 
-Stub documentation for Text::VCardFast, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+Text::VCardFast is designed to parse VCards very quickly compared to
+pure-perl solutions.  It has a perl and an XS version of the same API,
+accessible as vcard2hash_pp and vcard2hash_c, with the XS version being
+preferred.
 
-Blah blah blah.
 
 =head2 EXPORT
 
-None by default.
+  vcard2hash
+  hash2vcard
 
+=head2 API
+
+=over
+
+=item Text::VCard::vcard2hash($card, %options);
+
+  At the moment only one option is supported, 'multival'.  It is a list of
+  entry names which will be considered to have multiple values.  The 'value'
+  field of these entries will be an array rather than a scalar, and the value
+  is split on semicolon, with escaped semicolons decoded correctly within
+  each field.
+
+  The input is a scalar containing VFILE text, as per RFC 6350 or the various
+  earlier RFCs it replaces.  If the perl unicode flag is set on the scalar,
+  then it will be propagated to the output values.
+
+  The output is a hash reference containing a single key 'objects', which is
+  an array of all the cards within the source text.
+
+  Each object can have the following keys:
+  * type - the text after BEGIN: and END: of the card.
+  * properties - a hash from name to array of instances within the card.
+  * objects - an array of sub cards within the card.
+
+  Properties are a hash with the following keys:
+  * group - optional - if the propery name as 'foo.bar', this will be foo.
+  * name - a copy of the hash key that pointed to this property, so that
+    this hash can be used without keeping the key around too
+  * params - a hash of the parameters on the entry.  This is everything from
+    the ; to the :
+  * value - either a scalar (if not a multival field) or an array of values.
+    This is everything after the :
+
+  Decoding is done where possible, including RFC 6868 handling of ^.
+
+  All names, both entry names and parameter names, are lowercased where the
+  RFC says they are not case significant.  This means that all hash keys are
+  lowercase within this API.
+
+=item Text::VCard::hash2vcard($hash, $eol)
+
+  The inverse operation (as much as possible!)
+
+  Given a hash with an 'objects' key in it, output a scalar string containing
+  the VCARD representation.  Lines are separated with the $eol string given,
+  or the default "\n".  Use "\r\n" for files going to caldav/carddav servers.
+
+  In the inverse of the above case, where names are case insignificant, they
+  are generated in UPPERCASE in the card, for maximum compatibility with
+  other implementations.
+
+=back
 
 
 =head1 SEE ALSO
 
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
+There is a similar module Text::VFile::asData on CPAN, but it is much
+slower and doesn't do as much decoding.
 
-If you have a mailing list set up for your module, mention it here.
+Code is stored on github at
 
-If you have a web site set up for your module, mention it here.
+https://github.com/brong/Text-VCardFast/
 
 =head1 AUTHOR
 
-Bron Gondwana, E<lt>brong@E<gt>
+Bron Gondwana, E<lt>brong@fastmail.fm<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
