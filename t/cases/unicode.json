@@ -1,7 +1,7 @@
 {
    "objects" : [
       {
-         "type" : "VCARD",
+         "type" : "vcard",
          "properties" : {
             "val" : [
                {
@@ -13,4 +13,3 @@
       }
    ]
 }
-

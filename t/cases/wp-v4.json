@@ -1,31 +1,34 @@
 {
    "objects" : [
       {
-         "type" : "VCARD",
+         "type" : "vcard",
          "properties" : {
             "n" : [
                {
+                  "name" : "n",
                   "values" : [
                      "Gump",
                      "Forrest",
-                     "Mr."
-                  ],
-                  "name" : "n"
+                     "",
+                     "",
+                     ""
+                  ]
                }
             ],
             "org" : [
                {
+                  "name" : "org",
                   "values" : [
                      "Bubba Gump Shrimp Co."
-                  ],
-                  "name" : "org"
+                  ]
                }
             ],
             "photo" : [
                {
                   "params" : {
-                     "value" : "URL",
-                     "type" : "GIF"
+                     "mediatype" : [
+                        "image/gif"
+                     ]
                   },
                   "value" : "http://www.example.com/dir_photos/my_photo.gif",
                   "name" : "photo"
@@ -33,15 +36,12 @@
             ],
             "version" : [
                {
-                  "value" : "3.0",
+                  "value" : "4.0",
                   "name" : "version"
                }
             ],
             "email" : [
                {
-                  "params" : {
-                     "type" : "PREF,INTERNET"
-                  },
                   "value" : "forrestgump@example.com",
                   "name" : "email"
                }
@@ -49,39 +49,35 @@
             "tel" : [
                {
                   "params" : {
-                     "type" : "WORK,VOICE"
+                     "value" : [
+                        "uri"
+                     ],
+                     "type" : [
+                        "work",
+                        "voice"
+                     ]
                   },
-                  "value" : "(111) 555-1212",
+                  "value" : "tel:+1-111-555-1212",
                   "name" : "tel"
                },
                {
                   "params" : {
-                     "type" : "HOME,VOICE"
+                     "value" : [
+                        "uri"
+                     ],
+                     "type" : [
+                        "home",
+                        "voice"
+                     ]
                   },
-                  "value" : "(404) 555-1212",
+                  "value" : "tel:+1-404-555-1212",
                   "name" : "tel"
                }
             ],
             "rev" : [
                {
-                  "value" : "2008-04-24T19:52:43Z",
+                  "value" : "20080424T195243Z",
                   "name" : "rev"
-               }
-            ],
-            "label" : [
-               {
-                  "params" : {
-                     "type" : "WORK"
-                  },
-                  "value" : "100 Waters Edge\nBaytown, LA 30314\nUnited States of America",
-                  "name" : "label"
-               },
-               {
-                  "params" : {
-                     "type" : "HOME"
-                  },
-                  "value" : "42 Plantation St.\nBaytown, LA 30314\nUnited States of America",
-                  "name" : "label"
                }
             ],
             "title" : [
@@ -93,8 +89,14 @@
             "adr" : [
                {
                   "params" : {
-                     "type" : "WORK"
+                     "label" : [
+                        "100 Waters Edge\nBaytown, LA 30314\nUnited States of America"
+                     ],
+                     "type" : [
+                        "work"
+                     ]
                   },
+                  "name" : "adr",
                   "values" : [
                      "",
                      "",
@@ -103,13 +105,18 @@
                      "LA",
                      "30314",
                      "United States of America"
-                  ],
-                  "name" : "adr"
+                  ]
                },
                {
                   "params" : {
-                     "type" : "HOME"
+                     "label" : [
+                        "42 Plantation St.\nBaytown, LA 30314\nUnited States of America"
+                     ],
+                     "type" : [
+                        "home"
+                     ]
                   },
+                  "name" : "adr",
                   "values" : [
                      "",
                      "",
@@ -118,8 +125,7 @@
                      "LA",
                      "30314",
                      "United States of America"
-                  ],
-                  "name" : "adr"
+                  ]
                }
             ],
             "fn" : [
@@ -132,4 +138,3 @@
       }
    ]
 }
-
