@@ -21,8 +21,10 @@
                 } \
         } STMT_END
 
+#define str_u(val) (is_utf8 ? newSVpvn_utf8((val), strlen(val), 1) : newSVpvn((val), strlen(val)))
 
-static HV *_card2perl(struct vparse_card *card)
+
+static HV *_card2perl(struct vparse_card *card, int is_utf8)
 {
     struct vparse_card *sub;
     struct vparse_entry *entry;
@@ -30,7 +32,7 @@ static HV *_card2perl(struct vparse_card *card)
     HV *prophash = newHV();
 
     if (card->type) {
-        hv_store(res, "type", 4, newSVpvn_utf8(card->type, strlen(card->type), 1), 0);
+        hv_store(res, "type", 4, str_u(card->type), 0);
         hv_store(res, "properties", 10, newRV_noinc( (SV *) prophash), 0);
     }
 
@@ -38,7 +40,7 @@ static HV *_card2perl(struct vparse_card *card)
         AV *objarray = newAV();
         hv_store(res, "objects", 7, newRV_noinc( (SV *) objarray), 0);
         for (sub = card->objects; sub; sub = sub->next) {
-            HV *child = _card2perl(sub);
+            HV *child = _card2perl(sub, is_utf8);
             av_push(objarray, newRV_noinc( (SV *) child));
         }
     }
@@ -47,18 +49,18 @@ static HV *_card2perl(struct vparse_card *card)
         HV *item = newHV();
 
         if (entry->group)
-            hv_store(item, "group", 5, newSVpvn_utf8(entry->group, strlen(entry->group), 1), 0);
+            hv_store(item, "group", 5, str_u(entry->group), 0);
 
-        hv_store(item, "name", 4, newSVpvn_utf8(entry->name, strlen(entry->name), 1), 0);
+        hv_store(item, "name", 4, str_u(entry->name), 0);
         if (entry->multivalue) {
             AV *av = newAV();
             struct vparse_list *list;
             for (list = entry->v.values; list; list = list->next)
-                av_push(av, newSVpvn_utf8(list->s, strlen(list->s), 1));
+                av_push(av, str_u(list->s));
             hv_store(item, "value", 5, newRV_noinc( (SV *) av), 0);
         }
         else {
-            hv_store(item, "value", 5, newSVpvn_utf8(entry->v.value, strlen(entry->v.value), 1), 0);
+            hv_store(item, "value", 5, str_u(entry->v.value), 0);
         }
 
         if (entry->params) {
@@ -66,7 +68,7 @@ static HV *_card2perl(struct vparse_card *card)
             HV *prop = newHV();
             for (param = entry->params; param; param = param->next) {
                 if (param->value)
-                    hv_store(prop, param->name, strlen(param->name), newSVpvn_utf8(param->value, strlen(param->value), 1), 0);
+                    hv_store(prop, param->name, strlen(param->name), str_u(param->value), 0);
                 else
                     hv_store(prop, param->name, strlen(param->name), newSV(0), 0);
             }
@@ -142,24 +144,25 @@ _vcard2hash(src, conf)
         HV *hash;
         struct vparse_state parser;
         struct vparse_list *multival = NULL;
+        int is_utf8 = 0;
         int r;
         SV **key;
 
-        if ((key = hv_fetch(conf, "multival", 8, 0)) && SvTRUE(*key)) {
+        if ((key = hv_fetch(conf, "multival", 8, 0)) && SvTRUE(*key))
             multival = _get_keys(key);
-        }
+
+        if ((key = hv_fetch(conf, "is_utf8", 7, 0)) && SvTRUE(*key))
+            is_utf8 = 1;
 
         memset(&parser, 0, sizeof(struct vparse_state));
-
         parser.base = src;
         parser.multival = multival;
 
         r = vparse_parse(&parser);
+        if (r) _die_error(&parser, r);
 
-        if (r)
-            _die_error(&parser, r);
+        hash = _card2perl(parser.card, is_utf8);
 
-        hash = _card2perl(parser.card);
         vparse_free(&parser);
 
         RETVAL = newRV_noinc( (SV *) hash);

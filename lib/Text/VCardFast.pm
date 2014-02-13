@@ -44,9 +44,12 @@ sub hash2vcard { &hash2vcard_pp }
 
 sub vcard2hash_c {
     my $vcard = shift;
-    my $params = shift || {};
-    utf8::encode($vcard) if utf8::is_utf8($vcard);
-    my $hash = Text::VCardFast::_vcard2hash($vcard, $params);
+    my %params = @_;
+    if (utf8::is_utf8($vcard)) {
+        utf8::encode($vcard);
+        $params{is_utf8} = 1;
+    }
+    my $hash = Text::VCardFast::_vcard2hash($vcard, \%params);
     return $hash;
 }
 
@@ -66,11 +69,8 @@ my %ParamOutputOrder = map { $_ => $Pos++ } @ParamOutputOrder;
 
 sub vcard2hash_pp {
   my $vcard = shift;
-  my $params = shift || {};
-  #vcard must be in perl is_UTF8 format
-  utf8::decode($vcard) unless utf8::is_utf8($vcard);
-  my $hash = vcardlines2hash_pp($params, (split /\r?\n/, $vcard));
-  return $hash;
+  my %params = @_;
+  return vcardlines2hash_pp(\%params, (split /\r?\n/, $vcard));
 }
 
 sub vcardlines2hash_pp {

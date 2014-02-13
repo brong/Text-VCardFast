@@ -31,9 +31,9 @@ foreach my $test (@tests) {
     my $vdata = getfile("$Bin/cases/$test.vcf");
     ok($vdata, "data in $test.vcf");
 
-    my $chash = eval { Text::VCardFast::vcard2hash_c($vdata, { multival => ['adr','org','n'] }) };
+    my $chash = eval { Text::VCardFast::vcard2hash_c($vdata, multival => ['adr','org','n']) };
     ok($chash, "parsed VCARD in $test.vcf with C ($@)");
-    my $phash = eval { Text::VCardFast::vcard2hash_pp($vdata, { multival => ['adr','org','n'] }) };
+    my $phash = eval { Text::VCardFast::vcard2hash_pp($vdata, multival => ['adr','org','n']) };
     ok($phash, "parsed VCARD in $test.vcf with pureperl ($@)");
 
     unless (is_deeply($phash, $chash, "contents of $test.vcf match from C and pureperl")) {
@@ -59,8 +59,8 @@ foreach my $test (@tests) {
 
     my $data = Text::VCardFast::hash2vcard($chash);
     # hash2vcard clobbers
-    my $newchash = eval { Text::VCardFast::vcard2hash_c($vdata, { multival => ['adr','org','n'] }) };
-    my $rehash = Text::VCardFast::vcard2hash_c($data, { multival => ['adr','org','n'] });
+    my $newchash = eval { Text::VCardFast::vcard2hash_c($vdata, multival => ['adr','org','n']) };
+    my $rehash = Text::VCardFast::vcard2hash_c($data, multival => ['adr','org','n']);
 
     unless (is_deeply($rehash, $newchash, "generated and reparsed data matches for $test")) {
 	use Data::Dumper;
