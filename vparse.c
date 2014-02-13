@@ -24,7 +24,10 @@ static size_t roundup(size_t size)
     return ((size + 1024) & ~1023);
 }
 
-static void buf_ensure(struct buf *buf, size_t n)
+#define buf_ensure(b, n) do { if ((b)->alloc < (b)->len + (n)) _buf_ensure((b), (n)); } while (0)
+#define buf_putc(b, c) do { buf_ensure((b), 1); (b)->s[(b)->len++] = (c); } while (0)
+
+static void _buf_ensure(struct buf *buf, size_t n)
 {
     size_t newalloc = roundup(buf->len + n);
 
@@ -35,20 +38,12 @@ static void buf_ensure(struct buf *buf, size_t n)
     buf->alloc = newalloc;
 }
 
-static void buf_putc(struct buf *buf, char c)
+static char *buf_dup_cstring(struct buf *buf)
 {
-    buf_ensure(buf, 1);
-    buf->s[buf->len++] = c;
-}
-
-static char *buf_release(struct buf *buf)
-{
-    char *ret;
-    buf_ensure(buf, 1);
-    buf->s[buf->len] = '\0';
-    ret = buf->s;
-    buf->s = NULL;
-    buf->len = buf->alloc = 0;
+    char *ret = strndup(buf->s, buf->len);
+    /* more space efficient than returning overlength buffers, and
+     * you would just wind up mallocing another buffer anyway */
+    buf->len = 0;
     return ret;
 }
 
@@ -62,7 +57,6 @@ static void buf_free(struct buf *buf)
 
 #define NOTESTART() state->itemstart = state->p
 #define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
-#define TAKEVAL() state->val = buf_release(&state->buf)
 #define PUTC(C) buf_putc(&state->buf, C)
 #define PUTLC(C) PUTC(((C) >= 'A' && (C) <= 'Z') ? (C) - 'A' + 'a' : (C))
 #define INC(I) state->p += I
@@ -140,14 +134,14 @@ static int _parse_param_key(struct vparse_state *state, int *haseq)
     while (*state->p) {
         switch (*state->p) {
         case '=':
-            state->param->name = buf_release(&state->buf);
+            state->param->name = buf_dup_cstring(&state->buf);
             *haseq = 1;
             INC(1);
             return 0;
 
         case ';': /* vcard 2.1 parameter with no value */
         case ':':
-            state->param->name = buf_release(&state->buf);
+            state->param->name = buf_dup_cstring(&state->buf);
             /* no INC - we need to see this char up a layer */
             return 0;
 
@@ -226,7 +220,7 @@ repeat:
         case ':':
             /* done - all parameters parsed */
             if (haseq)
-                state->param->value = buf_release(&state->buf);
+                state->param->value = buf_dup_cstring(&state->buf);
             *paramp = state->param;
             state->param = NULL;
             INC(1);
@@ -235,7 +229,7 @@ repeat:
         case ';':
             /* another parameter to parse */
             if (haseq)
-                state->param->value = buf_release(&state->buf);
+                state->param->value = buf_dup_cstring(&state->buf);
             *paramp = state->param;
             paramp = &state->param->next;
             INC(1);
@@ -267,19 +261,19 @@ static int _parse_entry_key(struct vparse_state *state)
     while (*state->p) {
         switch (*state->p) {
         case ':':
-            state->entry->name = buf_release(&state->buf);
+            state->entry->name = buf_dup_cstring(&state->buf);
             INC(1);
             return 0;
 
         case ';':
-            state->entry->name = buf_release(&state->buf);
+            state->entry->name = buf_dup_cstring(&state->buf);
             INC(1);
             return _parse_entry_params(state);
 
         case '.':
             if (state->entry->group)
                 return PE_ENTRY_MULTIGROUP;
-            state->entry->group = buf_release(&state->buf);
+            state->entry->group = buf_dup_cstring(&state->buf);
             INC(1);
             break;
 
@@ -330,7 +324,7 @@ repeat:
             break;
 
         case ';':
-            state->value->s = buf_release(&state->buf);
+            state->value->s = buf_dup_cstring(&state->buf);
             *valp = state->value;
             valp = &state->value->next;
             INC(1);
@@ -358,7 +352,7 @@ repeat:
 out:
     /* reaching the end of the file isn't a failure here,
      * it's just another type of end-of-value */
-    state->value->s = buf_release(&state->buf);
+    state->value->s = buf_dup_cstring(&state->buf);
     *valp = state->value;
     state->value = NULL;
     return 0;
@@ -410,7 +404,7 @@ static int _parse_entry_value(struct vparse_state *state)
 out:
     /* reaching the end of the file isn't a failure here,
      * it's just another type of end-of-value */
-    state->entry->v.value = buf_release(&state->buf);
+    state->entry->v.value = buf_dup_cstring(&state->buf);
     return 0;
 }
 
