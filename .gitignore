@@ -6,3 +6,4 @@ VCardFast.o
 blib/
 pm_to_blib
 vparse.o
+Text-VCardFast-*.tar.gz
