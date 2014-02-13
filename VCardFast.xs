@@ -162,6 +162,7 @@ _vcard2hash(src, conf)
         hash = _card2perl(parser.card);
         vparse_free(&parser);
 
-        ST(0) = sv_2mortal(newRV_noinc( (SV *) hash));
-        XSRETURN(1);
+        RETVAL = newRV_noinc( (SV *) hash);
+    OUTPUT:
+        RETVAL
 
