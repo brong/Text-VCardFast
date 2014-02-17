@@ -184,7 +184,7 @@ sub vcardlines2hash_pp {
       $Value = [ split /(?<!\\);/, $Value, -1 ];
       s#\\(.)#$UnescapeMap{$1} // $1#ge for @$Value;
       $Props{values} = $Value;
-    } elsif ($Encoding && lc $Encoding->[0] eq 'b') {
+    } elsif ($Encoding && lc $Encoding eq 'b') {
       # Don't bother unescaping base64 value
 
       $Props{value} = $Value;
