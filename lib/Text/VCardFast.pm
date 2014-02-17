@@ -361,6 +361,23 @@ pure-perl solutions.  It has a perl and an XS version of the same API,
 accessible as vcard2hash_pp and vcard2hash_c, with the XS version being
 preferred.
 
+Why would you care?  We were writing the calendaring code for fastmail.fm,
+and it was taking over 6 seconds to draw respond to a request for calendar
+data, and the bulk was going to the perl middleware layer - and THAT
+profiled down to the vcard parser.
+
+Two of us independently wrote better pure perl implementations, leading to
+about a 5 times speedup in each case.  I figured it was worth checking if
+XS would be much better.  Here's the benchmark on the v4 example from
+Wikipedia:
+
+    Benchmark: timing 10000 iterations of fastxs, pureperl, vcardasdata...
+        fastxs:  0 wallclock secs ( 0.16 usr +  0.01 sys =  0.17 CPU) @ 58823.53/s (n=10000)
+                (warning: too few iterations for a reliable count)
+      pureperl:  1 wallclock secs ( 1.04 usr +  0.00 sys =  1.04 CPU) @ 9615.38/s (n=10000)
+    vcardasdata:  8 wallclock secs ( 7.35 usr +  0.00 sys =  7.35 CPU) @ 1360.54/s (n=10000)
+
+(see bench.pl in the source tarball for the code)
 
 =head2 EXPORT
 
@@ -373,11 +390,54 @@ preferred.
 
 =item Text::VCard::vcard2hash($card, %options);
 
-  At the moment only one option is supported, 'multival'.  It is a list of
-  entry names which will be considered to have multiple values.  The 'value'
-  field of these entries will be an array rather than a scalar, and the value
-  is split on semicolon, with escaped semicolons decoded correctly within
-  each field.
+  Options:
+
+  * multival - A list of entry names which will be considered to have
+    multiple values.  Instead of having a 'value' field in the hash,
+    entries with this key will have a 'values' field containing an
+    arrayref of values - even if there is only one value.
+    The value is split on semicolon, with escaped semicolons decoded
+    correctly within each item.
+
+    Default is the empty list.
+
+  * multiparam - As with values - multiparam is a list of entry names
+    which can have multiple values.  To see the difference here you
+    must consider something like this:
+
+    EMAIL;TYPE="INTERNET,HOME";TYPE=PREF:example@example.com
+
+    If 'multiparam' includes 'TYPE' then the result will be:
+    ['INTERNET', 'HOME', 'PREF'], otherwise it will be:
+    ['INTERNET,HOME', 'PREF'].
+
+    Default is the empty list.
+
+  * barekeys - if set, then a bare parameter will be considered to be
+    a parameter name with an undefined value, rather than a being a
+    value for the parameter type.
+
+    Consider:
+
+    EMAIL;INTERNET;HOME:example@example.com
+
+    barekeys off:
+
+    {
+      name => 'email',
+      params => { type => ['INTERNET', 'HOME'] },
+      value => 'example@example.com',
+    }
+
+    barekeys on:
+
+    {
+      name => 'email',
+      params => { internet => [undef], home => [undef] },
+      value => 'example@example.com',
+    }
+
+    default is barekeys off.
 
   The input is a scalar containing VFILE text, as per RFC 6350 or the various
   earlier RFCs it replaces.  If the perl unicode flag is set on the scalar,
@@ -387,7 +447,7 @@ preferred.
   an array of all the cards within the source text.
 
   Each object can have the following keys:
-  * type - the text after BEGIN: and END: of the card.
+  * type - the text after BEGIN: and END: of the card (lower cased)
   * properties - a hash from name to array of instances within the card.
   * objects - an array of sub cards within the card.
 
@@ -404,7 +464,11 @@ preferred.
 
   All names, both entry names and parameter names, are lowercased where the
   RFC says they are not case significant.  This means that all hash keys are
-  lowercase within this API.
+  lowercase within this API, as are card types.
+
+  Values, on the other hand, are left in their original case even where the
+  RFC says they are case insignificant - due to the increased complexity of
+  tracking which version what parameters are in effect.
 
 =item Text::VCard::hash2vcard($hash, $eol)
 
@@ -419,6 +483,106 @@ preferred.
   other implementations.
 
 =back
+
+=head1 EXAMPLES
+
+  For more examples see the t/cases directory in the tarball, which contains
+  some sample VCARDs and JSON dumps of the hash representation.
+
+  BEGIN:VCARD
+  KEY;PKEY=PVALUE:VALUE
+  KEY2:VALUE2
+  END:VCARD
+
+  {
+  'objects' => [
+    {
+      'type' => 'vcard',
+      'properties' => {
+        'key2' => [
+          {
+            'value' => 'VALUE2',
+            'name' => 'key2'
+          }
+        ],
+        'key' => [
+          {
+            'params' => {
+              'pkey' => [
+                'PVALUE'
+              ]
+            },
+            'value' => 'VALUE',
+            'name' => 'key'
+          }
+        ]
+      }
+    }
+  ]
+  }
+
+  BEGIN:VCARD
+  BEGIN:SUBCARD
+  KEY:VALUE
+  END:SUBCARD
+  END:VCARD
+
+  {
+  'objects' => [
+    {
+      'objects' => [
+        {
+          'type' => 'subcard',
+          'properties' => {
+            'key' => [
+              {
+                'value' => 'VALUE',
+                'name' => 'key'
+              }
+            ]
+          }
+        }
+      ],
+      'type' => 'vcard',
+      'properties' => {}
+    }
+  ]
+  }
+
+  BEGIN:VCARD
+  GROUP1.KEY:VALUE
+  GROUP1.KEY2:VALUE2
+  GROUP2.KEY:VALUE
+  END:VCARD
+
+  {
+  'objects' => [
+    {
+      'type' => 'vcard',
+      'properties' => {
+        'key2' => [
+          {
+            'group' => 'group1',
+            'value' => 'VALUE2',
+            'name' => 'key2'
+          }
+        ],
+        'key' => [
+          {
+            'group' => 'group1',
+            'value' => 'VALUE',
+            'name' => 'key'
+          },
+          {
+            'group' => 'group2',
+            'value' => 'VALUE',
+            'name' => 'key'
+          }
+        ]
+      }
+    }
+  ]
+  }
 
 
 =head1 SEE ALSO
