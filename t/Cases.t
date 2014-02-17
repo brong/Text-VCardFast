@@ -27,24 +27,33 @@ my $numtests = @tests;
 
 ok($numtests, "we have $numtests cards to test");
 
+my @parseargs = (
+  multival => ['adr','org','n'],
+  multiparam => ['type'],
+);
+
 foreach my $test (@tests) {
     my $vdata = getfile("$Bin/cases/$test.vcf");
     ok($vdata, "data in $test.vcf");
 
-    my $chash = eval { Text::VCardFast::vcard2hash_c($vdata, multival => ['adr','org','n']) };
-    ok($chash, "parsed VCARD in $test.vcf with C ($@)");
-    my $phash = eval { Text::VCardFast::vcard2hash_pp($vdata, multival => ['adr','org','n']) };
+    my $phash = eval { Text::VCardFast::vcard2hash_pp($vdata, @parseargs) };
     ok($phash, "parsed VCARD in $test.vcf with pureperl ($@)");
+    my $chash = eval { Text::VCardFast::vcard2hash_c($vdata, @parseargs) };
+    ok($chash, "parsed VCARD in $test.vcf with C ($@)");
 
-    unless (is_deeply($phash, $chash, "contents of $test.vcf match from C and pureperl")) {
+    unless (is_deeply($phash, $chash, "contents of $test.vcf match from pureperl and C")) {
 	use Data::Dumper;
 	die Dumper($phash, $chash);
     }
 
     my $jdata = getfile("$Bin/cases/$test.json");
     unless (ok($jdata, "data in $test.json")) {
+	open(FH, ">$Bin/cases/$test.json");
 	my $coder = JSON::XS->new->utf8->pretty;
-	die $coder->encode($chash);
+	print FH $coder->encode($chash);
+	close(FH);
+	print "CREATED JSON FILE $test.json\n";
+	next;
     }
 
     my $jhash = eval { decode_json(encode_utf8($jdata)) };
@@ -59,8 +68,8 @@ foreach my $test (@tests) {
 
     my $data = Text::VCardFast::hash2vcard($chash);
     # hash2vcard clobbers
-    my $newchash = eval { Text::VCardFast::vcard2hash_c($vdata, multival => ['adr','org','n']) };
-    my $rehash = Text::VCardFast::vcard2hash_c($data, multival => ['adr','org','n']);
+    my $newchash = eval { Text::VCardFast::vcard2hash_c($vdata, @parseargs) };
+    my $rehash = Text::VCardFast::vcard2hash_c($data, @parseargs);
 
     unless (is_deeply($rehash, $newchash, "generated and reparsed data matches for $test")) {
 	use Data::Dumper;
