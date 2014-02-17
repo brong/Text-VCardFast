@@ -78,8 +78,12 @@ sub vcardlines2hash_pp {
   local $_;
 
   my %MultiFieldMap;
+  my %MultiParamMap;
   if ($args->{multival}) {
     %MultiFieldMap = map { $_ => 1 } @{$args->{multival}};
+  }
+  if ($args->{multiparam}) {
+    %MultiParamMap = map { $_ => 1 } @{$args->{multiparam}};
   }
 
   # rfc2425, rfc2426, rfc6350, rfc6868
@@ -150,18 +154,25 @@ sub vcardlines2hash_pp {
       # 5.8.2 - parameter names are case insensitive
       my $LPName = lc $PName;
 
+      my @PValue = (undef);
       if (defined $PValue) {
         $PValue =~ s/^"(.*)"$/$1/;
         # \n needed for label, but assume any \; is meant to be ; as well
         $PValue =~ s#\\(.)#$UnescapeMap{$1} // $1#ge;
         # And RFC6868 recoding
         $PValue =~ s/\^([n^'])/$RFC6868Map{$1}/g;
+        if ($MultiParamMap{$LPName}) {
+          @PValue = split /,/, $PValue;
+        }
+        else {
+          @PValue = ($PValue);
+        }
       }
 
       if (exists $Params{$LPName}) {
-        push @{$Params{$LPName}}, $PValue;
+        push @{$Params{$LPName}}, @PValue;
       } else {
-        $Params{$LPName} = [$PValue];
+        $Params{$LPName} = \@PValue;
       }
     }
     $Props{params} = \%Params if keys %Params;

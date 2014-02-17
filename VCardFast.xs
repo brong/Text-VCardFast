@@ -144,6 +144,7 @@ _vcard2hash(src, conf)
         HV *hash;
         struct vparse_state parser;
         struct vparse_list *multival = NULL;
+        struct vparse_list *multiparam = NULL;
         int is_utf8 = 0;
         int barekeys = 0;
         int r;
@@ -151,6 +152,9 @@ _vcard2hash(src, conf)
 
         if ((key = hv_fetch(conf, "multival", 8, 0)) && SvTRUE(*key))
             multival = _get_keys(key);
+
+        if ((key = hv_fetch(conf, "multiparam", 10, 0)) && SvTRUE(*key))
+            multiparam = _get_keys(key);
 
         if ((key = hv_fetch(conf, "is_utf8", 7, 0)) && SvTRUE(*key))
             is_utf8 = 1;
@@ -161,6 +165,7 @@ _vcard2hash(src, conf)
         memset(&parser, 0, sizeof(struct vparse_state));
         parser.base = src;
         parser.multival = multival;
+        parser.multiparam = multiparam;
         parser.barekeys = barekeys;
 
         r = vparse_parse(&parser);
