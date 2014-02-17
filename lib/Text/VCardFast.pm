@@ -74,12 +74,12 @@ sub vcard2hash_pp {
 }
 
 sub vcardlines2hash_pp {
-  my $params = shift;
+  my $args = shift;
   local $_;
 
   my %MultiFieldMap;
-  if ($params->{multival}) {
-    %MultiFieldMap = map { $_ => 1 } @{$params->{multival}};
+  if ($args->{multival}) {
+    %MultiFieldMap = map { $_ => 1 } @{$args->{multival}};
   }
 
   # rfc2425, rfc2426, rfc6350, rfc6868
@@ -133,33 +133,40 @@ sub vcardlines2hash_pp {
     $Props{name} = $LName;
 
     # Parse out parameters
-    my $Params = ($Props{params} //= {});
+    my %Params;
     while (@Params) {
       # Parsed into param => param-value pairs
       my ($PName, $PValue) = splice @Params, 0, 2;
-      if (!defined $PName) {
-         $PName = 'type';
-         $PValue = lc($PValue);
+      if (not defined $PName) {
+        if ($args->{barekeys}) {
+          $PName = $PValue;
+          $PValue = undef;
+        }
+        else {
+          $PName = 'type';
+        }
       }
 
       # 5.8.2 - parameter names are case insensitive
       my $LPName = lc $PName;
 
-      $PValue =~ s/^"(.*)"$/$1/;
-      # \n needed for label, but assume any \; is meant to be ; as well
-      $PValue =~ s#\\(.)#$UnescapeMap{$1} // $1#ge;
-      # And RFC6868 recoding
-      $PValue =~ s/\^([n^'])/$RFC6868Map{$1}/g;
+      if (defined $PValue) {
+        $PValue =~ s/^"(.*)"$/$1/;
+        # \n needed for label, but assume any \; is meant to be ; as well
+        $PValue =~ s#\\(.)#$UnescapeMap{$1} // $1#ge;
+        # And RFC6868 recoding
+        $PValue =~ s/\^([n^'])/$RFC6868Map{$1}/g;
+      }
 
-      if (exists $Params->{$LPName}) {
-        push @{$Params->{$LPName}}, $PValue;
+      if (exists $Params{$LPName}) {
+        push @{$Params{$LPName}}, $PValue;
       } else {
-        $Params->{$LPName} = [$PValue];
+        $Params{$LPName} = [$PValue];
       }
     }
-    delete $Props{params} unless keys %{$Props{params}};
+    $Props{params} = \%Params if keys %Params;
 
-    my $Encoding = $Params->{encoding};
+    my $Encoding = $Params{encoding};
 
     if ($MultiFieldMap{$LName}) {
       # use negative 'limit' to force trailing fields
