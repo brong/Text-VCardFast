@@ -21,7 +21,7 @@
                 } \
         } STMT_END
 
-#define str_u(val) (is_utf8 ? newSVpvn_utf8((val), strlen(val), 1) : newSVpvn((val), strlen(val)))
+#define str_u(val) (!val ? newSV(0) : is_utf8 ? newSVpvn_utf8((val), strlen(val), 1) : newSVpvn((val), strlen(val)))
 
 
 static HV *_card2perl(struct vparse_card *card, int is_utf8)
@@ -68,9 +68,9 @@ static HV *_card2perl(struct vparse_card *card, int is_utf8)
             HV *prop = newHV();
             for (param = entry->params; param; param = param->next) {
                 if (param->value)
-                    hv_store(prop, param->name, strlen(param->name), str_u(param->value), 0);
+                    hv_store_aa(prop, param->name, strlen(param->name), str_u(param->value));
                 else
-                    hv_store(prop, param->name, strlen(param->name), newSV(0), 0);
+                    hv_store_aa(prop, "type", 4, str_u(param->name));
             }
             hv_store(item, "params", 6, newRV_noinc( (SV *) prop), 0);
         }

@@ -101,13 +101,13 @@ sub vcardlines2hash_pp {
 
     if (/^BEGIN:(.*)/i) {
       push @Path, $Current;
-      $Current = { type => uc $1 };
+      $Current = { type => $1 };
       push @{ $Path[-1]{objects} }, $Current;
       next;
     }
     if (/^END:(.*)/i) {
       die "END $1 in $Current->{type}"
-        unless $Current->{type} eq uc $1;
+        unless uc $Current->{type} eq uc $1;
       $Current = pop @Path;
       next;
     }
@@ -137,7 +137,10 @@ sub vcardlines2hash_pp {
     while (@Params) {
       # Parsed into param => param-value pairs
       my ($PName, $PValue) = splice @Params, 0, 2;
-      $PName = 'type' if !defined $PName;
+      if (!defined $PName) {
+         $PName = 'type';
+         $PValue = lc($PValue);
+      }
 
       # 5.8.2 - parameter names are case insensitive
       my $LPName = lc $PName;
@@ -148,12 +151,10 @@ sub vcardlines2hash_pp {
       # And RFC6868 recoding
       $PValue =~ s/\^([n^'])/$RFC6868Map{$1}/g;
 
-      if (!exists $Params->{$LPName}) {
-        $Params->{$LPName} = $PValue;
-      } elsif (!ref $Params->{$LPName}) {
-        $Params->{$LPName} = [ $Params->{$LPName}, $PValue ];
-      } else {
+      if (exists $Params->{$LPName}) {
         push @{$Params->{$LPName}}, $PValue;
+      } else {
+        $Params->{$LPName} = [$PValue];
       }
     }
     delete $Props{params} unless keys %{$Props{params}};
