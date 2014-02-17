@@ -40,6 +40,7 @@ struct vparse_state {
     const char *itemstart;
     const char *p;
     struct vparse_list *multival;
+    int barekeys;
 
     /* current items */
     struct vparse_card *card;

@@ -101,13 +101,13 @@ sub vcardlines2hash_pp {
 
     if (/^BEGIN:(.*)/i) {
       push @Path, $Current;
-      $Current = { type => $1 };
+      $Current = { type => lc $1 };
       push @{ $Path[-1]{objects} }, $Current;
       next;
     }
     if (/^END:(.*)/i) {
       die "END $1 in $Current->{type}"
-        unless uc $Current->{type} eq uc $1;
+        unless $Current->{type} eq lc $1;
       $Current = pop @Path;
       next;
     }

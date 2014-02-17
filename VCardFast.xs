@@ -24,7 +24,7 @@
 #define str_u(val) (!val ? newSV(0) : is_utf8 ? newSVpvn_utf8((val), strlen(val), 1) : newSVpvn((val), strlen(val)))
 
 
-static HV *_card2perl(struct vparse_card *card, int is_utf8)
+static HV *_card2perl(struct vparse_card *card, int is_utf8, int barekeys)
 {
     struct vparse_card *sub;
     struct vparse_entry *entry;
@@ -40,7 +40,7 @@ static HV *_card2perl(struct vparse_card *card, int is_utf8)
         AV *objarray = newAV();
         hv_store(res, "objects", 7, newRV_noinc( (SV *) objarray), 0);
         for (sub = card->objects; sub; sub = sub->next) {
-            HV *child = _card2perl(sub, is_utf8);
+            HV *child = _card2perl(sub, is_utf8, barekeys);
             av_push(objarray, newRV_noinc( (SV *) child));
         }
     }
@@ -145,6 +145,7 @@ _vcard2hash(src, conf)
         struct vparse_state parser;
         struct vparse_list *multival = NULL;
         int is_utf8 = 0;
+        int barekeys = 0;
         int r;
         SV **key;
 
@@ -154,14 +155,18 @@ _vcard2hash(src, conf)
         if ((key = hv_fetch(conf, "is_utf8", 7, 0)) && SvTRUE(*key))
             is_utf8 = 1;
 
+        if ((key = hv_fetch(conf, "barekeys", 8, 0)) && SvTRUE(*key))
+            barekeys = 1;
+
         memset(&parser, 0, sizeof(struct vparse_state));
         parser.base = src;
         parser.multival = multival;
+        parser.barekeys = barekeys;
 
         r = vparse_parse(&parser);
         if (r) _die_error(&parser, r);
 
-        hash = _card2perl(parser.card, is_utf8);
+        hash = _card2perl(parser.card, is_utf8, barekeys);
 
         vparse_free(&parser);
 

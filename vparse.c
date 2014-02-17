@@ -26,6 +26,7 @@ static size_t roundup(size_t size)
 
 #define buf_ensure(b, n) do { if ((b)->alloc < (b)->len + (n)) _buf_ensure((b), (n)); } while (0)
 #define buf_putc(b, c) do { buf_ensure((b), 1); (b)->s[(b)->len++] = (c); } while (0)
+#define LC(s) do { char *p; for (p = s; *p; p++) if (*p >= 'A' && *p <= 'Z') *p += ('a' - 'A'); } while (0)
 
 static void _buf_ensure(struct buf *buf, size_t n)
 {
@@ -47,6 +48,13 @@ static char *buf_dup_cstring(struct buf *buf)
     return ret;
 }
 
+static char *buf_dup_lcstring(struct buf *buf)
+{
+    char *ret = buf_dup_cstring(buf);
+    LC(ret);
+    return ret;
+}
+
 static void buf_free(struct buf *buf)
 {
     free(buf->s);
@@ -58,7 +66,6 @@ static void buf_free(struct buf *buf)
 #define NOTESTART() state->itemstart = state->p
 #define MAKE(X, Y) X = malloc(sizeof(struct Y)); memset(X, 0, sizeof(struct Y))
 #define PUTC(C) buf_putc(&state->buf, C)
-#define PUTLC(C) PUTC(((C) >= 'A' && (C) <= 'Z') ? (C) - 'A' + 'a' : (C))
 #define INC(I) state->p += I
 
 /* just leaves it on the buffer */
@@ -127,21 +134,25 @@ static int _parse_param_quoted(struct vparse_state *state)
 
 static int _parse_param_key(struct vparse_state *state, int *haseq)
 {
-    NOTESTART();
-
     *haseq = 0;
 
     while (*state->p) {
         switch (*state->p) {
         case '=':
-            state->param->name = buf_dup_cstring(&state->buf);
+            state->param->name = buf_dup_lcstring(&state->buf);
             *haseq = 1;
             INC(1);
             return 0;
 
         case ';': /* vcard 2.1 parameter with no value */
         case ':':
-            state->param->name = buf_dup_cstring(&state->buf);
+            if (state->barekeys) {
+                state->param->name = buf_dup_lcstring(&state->buf);
+            }
+            else {
+                state->param->name = strdup("type");
+                state->param->value = buf_dup_cstring(&state->buf);
+            }
             /* no INC - we need to see this char up a layer */
             return 0;
 
@@ -156,7 +167,7 @@ static int _parse_param_key(struct vparse_state *state, int *haseq)
 
         /* XXX - check exact legal set? */
         default:
-            PUTLC(*state->p);
+            PUTC(*state->p);
             INC(1);
             break;
         }
@@ -261,19 +272,19 @@ static int _parse_entry_key(struct vparse_state *state)
     while (*state->p) {
         switch (*state->p) {
         case ':':
-            state->entry->name = buf_dup_cstring(&state->buf);
+            state->entry->name = buf_dup_lcstring(&state->buf);
             INC(1);
             return 0;
 
         case ';':
-            state->entry->name = buf_dup_cstring(&state->buf);
+            state->entry->name = buf_dup_lcstring(&state->buf);
             INC(1);
             return _parse_entry_params(state);
 
         case '.':
             if (state->entry->group)
                 return PE_ENTRY_MULTIGROUP;
-            state->entry->group = buf_dup_cstring(&state->buf);
+            state->entry->group = buf_dup_lcstring(&state->buf);
             INC(1);
             break;
 
@@ -290,7 +301,7 @@ static int _parse_entry_key(struct vparse_state *state)
             break;
 
         default:
-            PUTLC(*state->p);
+            PUTC(*state->p);
             INC(1);
             break;
         }
@@ -519,6 +530,7 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
 
             MAKE(sub, vparse_card);
             sub->type = strdup(state->entry->v.value);
+            LC(sub->type);
             _free_entry(state->entry);
             state->entry = NULL;
             /* we must stitch it in first, because state won't hold it */
