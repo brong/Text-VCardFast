@@ -69,7 +69,7 @@ static void buf_free(struct buf *buf)
 #define INC(I) state->p += I
 
 /* just leaves it on the buffer */
-static int _parse_param_quoted(struct vparse_state *state)
+static int _parse_param_quoted(struct vparse_state *state, int multiparam)
 {
     NOTESTART();
 
@@ -121,6 +121,11 @@ static int _parse_param_quoted(struct vparse_state *state)
                 return PE_QSTRING_EOL;
             INC(2);
             break;
+
+        case ',':
+            if (multiparam)
+                return PE_QSTRING_COMMA;
+            /* or fall through, comma isn't special */
 
         default:
             PUTC(*state->p);
@@ -179,16 +184,27 @@ static int _parse_param_key(struct vparse_state *state, int *haseq)
 static int _parse_entry_params(struct vparse_state *state)
 {
     struct vparse_param **paramp = &state->entry->params;
+    struct vparse_list *item;
+    int multiparam = 0;
     int haseq = 0;
     int r;
 
 repeat:
+    multiparam = 0;
+    haseq = 0;
     MAKE(state->param, vparse_param);
 
     NOTESTART();
 
     r = _parse_param_key(state, &haseq);
     if (r) return r;
+
+    for (item = state->multiparam; item; item = item->next) {
+        if (!strcmp(state->param->name, item->s)) {
+            multiparam = 1;
+            break;
+        }
+    }
 
     /* now get the value */
     while (*state->p) {
@@ -224,7 +240,18 @@ repeat:
 
         case '"':
             INC(1);
-            r = _parse_param_quoted(state);
+            loop:
+            r = _parse_param_quoted(state, multiparam);
+            if (r == PE_QSTRING_COMMA) {
+                char *name = strdup(state->param->name);
+                state->param->value = buf_dup_cstring(&state->buf);
+                *paramp = state->param;
+                paramp = &state->param->next;
+                MAKE(state->param, vparse_param);
+                state->param->name = name;
+                INC(1);
+                goto loop;
+            }
             if (r) return r;
             break;
 
@@ -254,6 +281,20 @@ repeat:
                 return PE_PARAMVALUE_EOL;
             INC(2);
             break;
+
+        case ',':
+            if (multiparam) {
+                char *name = strdup(state->param->name);
+                if (haseq)
+                    state->param->value = buf_dup_cstring(&state->buf);
+                *paramp = state->param;
+                paramp = &state->param->next;
+                MAKE(state->param, vparse_param);
+                state->param->name = name;
+                INC(1);
+                break;
+            }
+            /* or fall through, comma isn't special */
 
         default:
             PUTC(*state->p);

@@ -26,6 +26,7 @@ PE_PARAMVALUE_EOF,
 PE_PARAMVALUE_EOL,
 PE_QSTRING_EOF,
 PE_QSTRING_EOL,
+PE_QSTRING_COMMA,
 PE_NUMERR /* last */
 };
 
@@ -40,6 +41,7 @@ struct vparse_state {
     const char *itemstart;
     const char *p;
     struct vparse_list *multival;
+    struct vparse_list *multiparam;
     int barekeys;
 
     /* current items */
