@@ -5,6 +5,7 @@ Revision history for Perl extension Text::VCardFast.
 	- checks is_utf8 flag and passes it down, so output is only UTF8
 	  if the input was.  This should allow arbitrary encodings to work.
 	- add documentation
+	- faster buffer implementation (taken from recent Cyrus optimisation)
 
 0.02  2014-01-10
 	- group support for VCard - entry name foo.bar will have
