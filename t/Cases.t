@@ -67,13 +67,11 @@ foreach my $test (@tests) {
     }
 
     my $data = Text::VCardFast::hash2vcard($chash);
-    # hash2vcard clobbers
-    my $newchash = eval { Text::VCardFast::vcard2hash_c($vdata, @parseargs) };
     my $rehash = Text::VCardFast::vcard2hash_c($data, @parseargs);
 
-    unless (is_deeply($rehash, $newchash, "generated and reparsed data matches for $test")) {
+    unless (is_deeply($rehash, $chash, "generated and reparsed data matches for $test")) {
 	use Data::Dumper;
-	die Dumper($rehash, $newchash, $data, $vdata);
+	die Dumper($rehash, $chash, $data, $vdata);
     }
 }
 

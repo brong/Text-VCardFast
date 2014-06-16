@@ -219,14 +219,20 @@ sub hash2vcardlines_pp {
 
     my $Props = $Card->{properties};
 
-    # Remove synthetic properties
-    delete $Props->{online};
-
     # Order the properties
     my @PropKeys = sort {
       ($PropOutputOrder{$a} // 1000) <=> ($PropOutputOrder{$b} // 1000)
         || $a cmp $b
     } keys %$Props;
+
+    # Make sure items in the same group are output together
+    my $Groups = $Card->{groups} || do {
+      my %Groups;
+      for (map { @$_ } values %$Props) {
+	push @{$Groups{$_->{group}}}, $_ if $_->{group};
+      }
+      \%Groups;
+    };
 
     # Generate output list
     my @OutputProps;
@@ -239,16 +245,17 @@ sub hash2vcardlines_pp {
 
         # If it has a group, output all values in that group together
         if (my $Group = $PropVal->{group}) {
-          push @OutputProps, grep { !$DoneProps{"$_"}++ } @{$Card->{groups}->{$Group}};
+          push @OutputProps, grep { !$DoneProps{"$_"}++ } @{$Groups->{$Group}};
         }
       }
     }
 
-    my $Type = $Card->{type};
+    my $Type = uc $Card->{type};
     push @Lines, ("BEGIN:" . $Type);
 
     for (@OutputProps) {
-      next if $_->{deleted};
+      # Skip deleted or synthetic properties
+      next if $_->{deleted} || $_->{name} eq 'online';
 
       my $Binary = $_->{binary};
       if ($Binary) {
@@ -262,15 +269,16 @@ sub hash2vcardlines_pp {
       # rfc6350 3.3 - it is RECOMMENDED that property and parameter names be upper-case on output.
       my $Line = ($Group ? (uc $Group . ".") : "") . uc $LName;
 
-      while (my ($Param, $ParamVals) = each %{$_->{params}}) {
+      while (my ($Param, $ParamVals) = each %{$_->{params} // {}}) {
         if (!defined $ParamVals) {
           $Line .= ";" . uc($Param);
         }
-        for my $ParamVal (ref($ParamVals) ? @$ParamVals : $ParamVals) {
-          $ParamVal =~ s/\n/\\N/g if $Param eq 'label';
-          $ParamVal =~ s/([\n^"])/'^' . $RFC6868RevMap{$1}/ge;
-          $ParamVal = '"' . $ParamVal . '"' if $ParamVal =~ /\W/;
-          $Line .= ";" . uc($Param) . "=" . $ParamVal;
+        for (ref($ParamVals) ? @$ParamVals : $ParamVals) {
+          my $PV = $_ // next; # Modify copy
+          $PV =~ s/\n/\\N/g if $Param eq 'label';
+          $PV =~ s/([\n^"])/'^' . $RFC6868RevMap{$1}/ge;
+          $PV = '"' . $PV . '"' if $PV =~ /\W/;
+          $Line .= ";" . uc($Param) . "=" . $PV;
         }
       }
       $Line .= ":";
@@ -281,8 +289,9 @@ sub hash2vcardlines_pp {
         $Value = encode_base64($Value, '');
 
       } else {
-        for (ref $Value ? @$Value : $Value) {
-          $_ //= '';
+        my @Values = map {
+          my $V = ref($_) ? $$_ : $_; # Modify copy
+          $V //= '';
           # rfc6350 3.4 (v4, assume clarifies many v3 semantics)
           # - a SEMICOLON in a field of such a "compound" property MUST be
           #   escaped with a BACKSLASH character
@@ -290,20 +299,19 @@ sub hash2vcardlines_pp {
           #   with a BACKSLASH character
           # - BACKSLASH characters in values MUST be escaped with a BACKSLASH
           #   character.
-          s/([\,\;\\])/\\$1/g;
+          $V =~ s/([\,\;\\])/\\$1/g;
           # - NEWLINE (U+000A) characters in values MUST be encoded
           #   by two characters: a BACKSLASH followed by either an 'n' (U+006E)
           #   or an 'N' (U+004E).
-          s/\n/\\n/g;
-        }
+          $V =~ s/\n/\\n/g;
+          $V;
+        } ref $Value ? @$Value : $Value;
 
-        if (ref $Value) {
-          $Value = join ";", @$Value;
-        } else {
-          # Stripped v4 proto prefix, add it back
-          if (my $ProtoStrip = $_->{proto_strip}) {
-            $Value = $ProtoStrip . $Value;
-          }
+        $Value = join ";", @Values;
+
+        # Stripped v4 proto prefix, add it back
+        if (my $ProtoStrip = $_->{proto_strip}) {
+          $Value = $ProtoStrip . $Value;
         }
 
         # If it's a perl unicode string, make it utf-8 bytes
