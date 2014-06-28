@@ -84,6 +84,13 @@ static int _parse_param_quoted(struct vparse_state *state, int multiparam)
          * the next character because it's so common, and LABEL definitely
          * allows \n, so we have to handle that anyway */
         case '\\':
+            /* seen in the wild - \n split by line wrapping */
+            if (state->p[1] == '\r') INC(1);
+            if (state->p[1] == '\n') {
+                if (state->p[2] != ' ' && state->p[2] != '\t')
+                    return PE_QSTRING_EOL;
+                INC(2);
+            }
             if (!state->p[1])
                 return PE_BACKQUOTE_EOF;
             if (state->p[1] == 'n' || state->p[1] == 'N')
@@ -95,6 +102,12 @@ static int _parse_param_quoted(struct vparse_state *state, int multiparam)
 
         /* special value quoting for doublequote and endline (RFC 6868) */
         case '^':
+            if (state->p[1] == '\r') INC(1);
+            if (state->p[1] == '\n') {
+                if (state->p[2] != ' ' && state->p[2] != '\t')
+                    return PE_QSTRING_EOL;
+                INC(2);
+            }
             if (state->p[1] == '\'') {
                 PUTC('"');
                 INC(2);
@@ -210,6 +223,13 @@ repeat:
     while (*state->p) {
         switch (*state->p) {
         case '\\': /* normal backslash quoting */
+            /* seen in the wild - \n split by line wrapping */
+            if (state->p[1] == '\r') INC(1);
+            if (state->p[1] == '\n') {
+                if (state->p[2] != ' ' && state->p[2] != '\t')
+                    return PE_PARAMVALUE_EOL;
+                INC(2);
+            }
             if (!state->p[1])
                 return PE_BACKQUOTE_EOF;
             if (state->p[1] == 'n' || state->p[1] == 'N')
@@ -220,6 +240,13 @@ repeat:
             break;
 
         case '^': /* special value quoting for doublequote (RFC 6868) */
+            /* seen in the wild - \n split by line wrapping */
+            if (state->p[1] == '\r') INC(1);
+            if (state->p[1] == '\n') {
+                if (state->p[2] != ' ' && state->p[2] != '\t')
+                    return PE_PARAMVALUE_EOL;
+                INC(2);
+            }
             if (state->p[1] == '\'') {
                 PUTC('"');
                 INC(2);
@@ -366,6 +393,13 @@ repeat:
         switch (*state->p) {
         /* only one type of quoting */
         case '\\':
+            /* seen in the wild - \n split by line wrapping */
+            if (state->p[1] == '\r') INC(1);
+            if (state->p[1] == '\n') {
+                if (state->p[2] != ' ' && state->p[2] != '\t')
+                    return PE_BACKQUOTE_EOF;
+                INC(2);
+            }
             if (!state->p[1])
                 return PE_BACKQUOTE_EOF;
             if (state->p[1] == 'n' || state->p[1] == 'N')
@@ -424,6 +458,13 @@ static int _parse_entry_value(struct vparse_state *state)
         switch (*state->p) {
         /* only one type of quoting */
         case '\\':
+            /* seen in the wild - \n split by line wrapping */
+            if (state->p[1] == '\r') INC(1);
+            if (state->p[1] == '\n') {
+                if (state->p[2] != ' ' && state->p[2] != '\t')
+                    return PE_BACKQUOTE_EOF;
+                INC(2);
+            }
             if (!state->p[1])
                 return PE_BACKQUOTE_EOF;
 
