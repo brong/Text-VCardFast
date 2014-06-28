@@ -209,7 +209,7 @@ sub hash2vcard_pp {
 }
 
 sub hash2vcardlines_pp {
-  my $Objects = shift->{objects};
+  my $Objects = shift->{objects} // [];
 
   my @Lines;
   for my $Card (@$Objects) {
@@ -324,6 +324,8 @@ sub hash2vcardlines_pp {
 
       push @Lines, foldline($Line);
     }
+
+    push @Lines, hash2vcardlines_pp($Card);
 
     push @Lines, "END:" . $Type;
   }
