@@ -1,5 +1,10 @@
 Revision history for Perl extension Text::VCardFast.
 
+0.04  2014-06-28
+	- hash2vcard - don't modify input hash while generating output
+	- handle \n split over a line wrap, i.e. "line 1\\\n nline2"
+	  becomes "line 1\nline2"
+
 0.03  2014-02-13
 	- breaking API change: params are a hash, not a hashref
 	- checks is_utf8 flag and passes it down, so output is only UTF8
