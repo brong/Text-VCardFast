@@ -336,10 +336,11 @@ sub hash2vcardlines_pp {
 sub foldline {
   local $_ = shift;
 
-  # Try folding on at whitespace boundaries first
-  # Otherwise fold to 75 chars, but don't split utf-8 unicode char
+  # Fold at every \n, regardless of position
+  # Try folding on at whitespace boundaries after 60 chars first
+  # Otherwise fold to 75 chars, but don't split utf-8 unicode char or end with a \
   my @Out;
-  while (/\G(.{60,75})(?<=[^\n\t ])(?=[\n\t ])/gc || /\G(.{1,75})(?![\x80-\xbf])/gc) {
+  while (/\G(.{0,75}?\\n)/gc || /\G(.{60,75})(?<=[^\n\t ])(?=[\n\t ])/gc || /\G(.{0,74}[^\\])(?![\x80-\xbf])/gc) {
     push @Out, (@Out ? " " . $1 : $1);
   }
   push @Out, " " . substr($_, pos($_)) if pos $_ != length $_;
