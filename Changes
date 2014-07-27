@@ -1,5 +1,9 @@
 Revision history for Perl extension Text::VCardFast.
 
+0.05  2014-07-28
+	- require JSON::XS so tests don't fail on platforms without it
+	- update README
+
 0.04  2014-06-28
 	- hash2vcard - don't modify input hash while generating output
 	- handle \n split over a line wrap, i.e. "line 1\\\n nline2"

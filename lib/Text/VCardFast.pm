@@ -1,6 +1,5 @@
 package Text::VCardFast;
 
-use 5.014002;
 use strict;
 use warnings;
 
@@ -30,7 +29,7 @@ our @EXPORT = qw(
 	hash2vcard
 );
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 require XSLoader;
 XSLoader::load('Text::VCardFast', $VERSION);
