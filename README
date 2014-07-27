@@ -1,16 +1,10 @@
-Text-VCardFast version 0.01
+Text-VCardFast version 0.05
 ===========================
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
-
-A README file is required for CPAN modules since CPAN extracts the
-README file from a module distribution so that people browsing the
-archive can use it get an idea of the modules uses. It is usually a
-good idea to provide version information here so that people can
-decide whether fixes for the module are worth downloading.
+Text::VCardFast is a module for parsing and creating VCards.  It
+contains both a pure perl and an XS implementation.  The pure-perl
+is provided just for comparison - the XS implementation is faster
+and designed to handle all existing RFCs for VCard format.
 
 INSTALLATION
 
@@ -25,13 +19,11 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-  blah blah blah
+  JSON::XS - for the test suite
 
 COPYRIGHT AND LICENCE
 
-Put the correct copyright and licence information here.
-
-Copyright (C) 2014 by Bron Gondwana
+Copyright (C) 2014 by FastMail Pty Ltd
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.14.2 or,
