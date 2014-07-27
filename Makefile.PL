@@ -5,7 +5,9 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'Text::VCardFast',
     VERSION_FROM      => 'lib/Text/VCardFast.pm', # finds $VERSION
-    PREREQ_PM         => {}, # e.g., Module::Name => 1.1
+    PREREQ_PM         => {
+      'JSON::XS' => '0',        # needed for testing
+    }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Text/VCardFast.pm', # retrieve abstract from module
        AUTHOR         => 'Bron Gondwana <brong@>') : ()),
