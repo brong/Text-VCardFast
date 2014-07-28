@@ -12,6 +12,7 @@ t/Text-VCardFast.t
 t/Errors.t
 t/Cases.t
 t/Create.t
+t/Trailing.t
 t/cases
 t/cases/wp-v3.vcf
 t/cases/trailingslash.vcf
