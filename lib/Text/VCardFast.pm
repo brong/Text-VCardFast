@@ -112,6 +112,7 @@ sub vcardlines2hash_pp {
       die "END $1 in $Current->{type}"
         unless $Current->{type} eq lc $1;
       $Current = pop @Path;
+      return $Current if ($args->{only_one} and not @Path);
       next;
     }
 
@@ -401,6 +402,11 @@ Wikipedia:
 =item Text::VCard::vcard2hash($card, %options);
 
   Options:
+
+  * only_one - A flag which, if true, means parsing will stop after
+    extracting a single VCard from the buffer.  This is very useful
+    in cases where, for example, a disclaimer has been added after
+    a calendar event in an email.
 
   * multival - A list of entry names which will be considered to have
     multiple values.  Instead of having a 'value' field in the hash,

@@ -574,7 +574,7 @@ static int _parse_entry(struct vparse_state *state)
     return _parse_entry_value(state);
 }
 
-static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
+static int _parse_vcard(struct vparse_state *state, struct vparse_card *card, int only_one)
 {
     struct vparse_card **subp = &card->objects;
     struct vparse_entry **entryp = &card->properties;
@@ -618,8 +618,9 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
             /* we must stitch it in first, because state won't hold it */
             *subp = sub;
             subp = &sub->next;
-            r = _parse_vcard(state, sub);
+            r = _parse_vcard(state, sub, /*only_one*/0);
             if (r) return r;
+            if (only_one) return 0;
         }
         else if (!strcmp(state->entry->name, "end")) {
             /* shouldn't be any params */
@@ -662,14 +663,14 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card)
 
 /* PUBLIC API */
 
-int vparse_parse(struct vparse_state *state)
+int vparse_parse(struct vparse_state *state, int only_one)
 {
     MAKE(state->card, vparse_card);
 
     state->p = state->base;
 
-    /* XXX - check for trailing non-whitespace? */
-    return _parse_vcard(state, state->card);
+    /* don't parse trailing non-whitespace */
+    return _parse_vcard(state, state->card, only_one);
 }
 
 void vparse_free(struct vparse_state *state)

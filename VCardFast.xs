@@ -147,6 +147,7 @@ _vcard2hash(src, conf)
         struct vparse_list *multiparam = NULL;
         int is_utf8 = 0;
         int barekeys = 0;
+        int only_one = 0;
         int r;
         SV **key;
 
@@ -162,13 +163,16 @@ _vcard2hash(src, conf)
         if ((key = hv_fetch(conf, "barekeys", 8, 0)) && SvTRUE(*key))
             barekeys = 1;
 
+        if ((key = hv_fetch(conf, "only_one", 8, 0)) && SvTRUE(*key))
+            only_one = 1;
+
         memset(&parser, 0, sizeof(struct vparse_state));
         parser.base = src;
         parser.multival = multival;
         parser.multiparam = multiparam;
         parser.barekeys = barekeys;
 
-        r = vparse_parse(&parser);
+        r = vparse_parse(&parser, only_one);
         if (r) _die_error(&parser, r);
 
         hash = _card2perl(parser.card, is_utf8, barekeys);

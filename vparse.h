@@ -85,7 +85,7 @@ struct vparse_errorpos {
     int errorchar;
 };
 
-extern int vparse_parse(struct vparse_state *state);
+extern int vparse_parse(struct vparse_state *state, int only_one);
 extern void vparse_free(struct vparse_state *state);
 extern void vparse_fillpos(struct vparse_state *state, struct vparse_errorpos *pos);
 extern const char *vparse_errstr(int err);
