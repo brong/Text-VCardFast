@@ -1,5 +1,9 @@
 Revision history for Perl extension Text::VCardFast.
 
+0.06  2-14-07-29
+	- add 'only_one' option to stop parsing after the first card
+	  (avoids breaking on trailing disclaimers)
+
 0.05  2014-07-28
 	- require JSON::XS so tests don't fail on platforms without it
 	- update README
