@@ -1,6 +1,9 @@
 Revision history for Perl extension Text::VCardFast.
 
-0.06  2-14-07-29
+0.07  2016-04-27
+	- use strcmpsafe rather than strcmp in multivalue handling
+
+0.06  2014-07-29
 	- add 'only_one' option to stop parsing after the first card
 	  (avoids breaking on trailing disclaimers)
 
