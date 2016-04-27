@@ -7,6 +7,13 @@
 
 #include "vparse.h"
 
+static int strcmpsafe(const char *a, const char *b)
+{
+   if (!a) a = "";
+   if (!b) b = "";
+   return strcmp(a, b);
+}
+
 /* taken from cyrus, but I wrote the code originally,
    so I can relicence it -- Bron */
 static size_t roundup(size_t size)
@@ -213,7 +220,7 @@ repeat:
     if (r) return r;
 
     for (item = state->multiparam; item; item = item->next) {
-        if (!strcmp(state->param->name, item->s)) {
+        if (!strcmpsafe(state->param->name, item->s)) {
             multiparam = 1;
             break;
         }
@@ -449,7 +456,7 @@ static int _parse_entry_value(struct vparse_state *state)
     struct vparse_list *item;
 
     for (item = state->multival; item; item = item->next)
-        if (!strcmp(state->entry->name, item->s))
+        if (!strcmpsafe(state->entry->name, item->s))
             return _parse_entry_multivalue(state);
 
     NOTESTART();
@@ -597,7 +604,7 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card, in
         r = _parse_entry(state);
         if (r) return r;
 
-        if (!strcmp(state->entry->name, "begin")) {
+        if (!strcmpsafe(state->entry->name, "begin")) {
             /* shouldn't be any params */
             if (state->entry->params) {
                 state->itemstart = entrystart;
@@ -622,7 +629,7 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card, in
             if (r) return r;
             if (only_one) return 0;
         }
-        else if (!strcmp(state->entry->name, "end")) {
+        else if (!strcmpsafe(state->entry->name, "end")) {
             /* shouldn't be any params */
             if (state->entry->params) {
                 state->itemstart = entrystart;
