@@ -642,7 +642,7 @@ static int _parse_vcard(struct vparse_state *state, struct vparse_card *card, in
                 return PE_BEGIN_PARAMS;
             }
 
-            if (strcasecmp(state->entry->v.value, card->type)) {
+            if (!card->type || strcasecmp(state->entry->v.value, card->type)) {
                 /* special case mismatched card, the "start" was the start of
                  * the card */
                 state->itemstart = cardstart;

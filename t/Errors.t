@@ -8,12 +8,14 @@
 use strict;
 use warnings;
 
-use Test::More tests => 9;
+use Test::More tests => 11;
 BEGIN { use_ok('Text::VCardFast') };
 
 # http://en.wikipedia.org/wiki/VCard
 
 my @cards = (
+'ITEM:VALUE
+END:VCARD',
 'BEGIN:VCARD',
 'BEGIN:VCARD
 ITEM;VAL=',
@@ -27,6 +29,7 @@ END:VCARD',
 );
 
 my @expected = (
+    'Closed a different card name than opened',
     'not completed',
     'End of data while parsing parameter value',
     'Closed a different card name than opened',
