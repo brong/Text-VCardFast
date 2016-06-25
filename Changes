@@ -1,5 +1,8 @@
 Revision history for Perl extension Text::VCardFast.
 
+0.08  2016-06-26
+	- check that we have an open card before strcasecmping the type
+
 0.07  2016-04-27
 	- use strcmpsafe rather than strcmp in multivalue handling
 
