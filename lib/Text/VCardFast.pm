@@ -29,7 +29,7 @@ our @EXPORT = qw(
 	hash2vcard
 );
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 require XSLoader;
 XSLoader::load('Text::VCardFast', $VERSION);

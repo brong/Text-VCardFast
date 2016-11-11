@@ -1,5 +1,8 @@
 Revision history for Perl extension Text::VCardFast.
 
+0.09  2016-11-11
+	- remove test/cases from MANIFEST file
+
 0.08  2016-06-26
 	- check that we have an open card before strcasecmping the type
 
