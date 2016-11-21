@@ -6,7 +6,7 @@ README
 VCardFast.xs
 vparse.c
 vparse.h
-bench.pl
+benchmark/bench.pl
 lib/Text/VCardFast.pm
 t/Text-VCardFast.t
 t/Errors.t
