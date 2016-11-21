@@ -48,6 +48,10 @@ sub vcard2hash_c {
         utf8::encode($vcard);
         $params{is_utf8} = 1;
     }
+    unless ($vcard =~ m/\n/) {
+        # cruddy card with \r as line separator?
+        $vcard =~ tr/\r/\n/;
+    }
     my $hash = Text::VCardFast::_vcard2hash($vcard, \%params);
     return $hash;
 }
@@ -68,6 +72,10 @@ my %ParamOutputOrder = map { $_ => $Pos++ } @ParamOutputOrder;
 
 sub vcard2hash_pp {
   my $vcard = shift;
+  unless ($vcard =~ m/\n/) {
+    # cruddy card with \r as line separator?
+    $vcard =~ tr/\r/\n/;
+  }
   my %params = @_;
   return vcardlines2hash_pp(\%params, (split /\r?\n/, $vcard));
 }

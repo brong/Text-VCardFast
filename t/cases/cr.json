@@ -1,0 +1,15 @@
+{
+   "objects" : [
+      {
+         "type" : "vcard",
+         "properties" : {
+            "val" : [
+               {
+                  "value" : "text",
+                  "name" : "val"
+               }
+            ]
+         }
+      }
+   ]
+}
