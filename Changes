@@ -1,5 +1,9 @@
 Revision history for Perl extension Text::VCardFast.
 
+0.10  2016-11-21
+	- move bench.pl into a sub directory so it doesn't install
+	- handle files with only \r and no \n for line endings
+
 0.09  2016-11-11
 	- remove test/cases from MANIFEST file
 
