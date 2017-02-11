@@ -370,8 +370,8 @@ Text::VCardFast - Perl extension for very fast parsing of VCards
 
   use Text::VCardFast;
 
-  my $hash = Text::VCard::vcard2hash($card, multival => ['adr', 'org', 'n']);
-  my $card = Text::VCard::hash2vcard($hash, "\r\n");
+  my $hash = Text::VCardFast::vcard2hash($card, multival => ['adr', 'org', 'n']);
+  my $card = Text::VCardFast::hash2vcard($hash, "\r\n");
 
 =head1 DESCRIPTION
 
