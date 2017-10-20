@@ -620,7 +620,7 @@ https://github.com/brong/Text-VCardFast/
 
 =head1 AUTHOR
 
-Bron Gondwana, E<lt>brong@fastmail.fm<gt>
+Bron Gondwana, E<lt>brong@fastmail.fmE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
