@@ -6,6 +6,12 @@
 
 #include "vparse.h"
 
+#ifdef _WIN32
+#include "strndup.h"
+#else
+#define HAVE_STRNDUP
+#endif
+
 // hv_store to array, create if not exists - from XML::Fast 0.11
 #define hv_store_aa( hv, kv, kl, sv ) \
         STMT_START { \

@@ -1,0 +1,76 @@
+language: perl
+perl:
+  - "5.30"
+  - "5.22"
+  - "5.24"
+  - "5.26"
+  - "5.28"
+  - "blead"
+
+os:
+  - linux
+  # Don't add OSX here
+  
+matrix:
+  # Add one job for testing OSX
+  include:
+    - perl: "5.28"
+      os: "osx"
+      addons:
+        homebrew:
+          packages:
+          - perl
+
+allow_failures:
+  - perl: blead
+
+dist: xenial
+
+before_install:
+  - git clone git://github.com/travis-perl/helpers ~/travis-perl-helpers
+  # Install perlbrew the hard way, on OSX
+  #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew upgrade; brew install perl ; fi
+  - if [[ "$TRAVIS_OS_NAME" == 'osx' ]]; then \curl -L http://install.perlbrew.pl | bash; fi
+  - if [[ "$TRAVIS_OS_NAME" == 'osx' ]]; then source ~/perl5/perlbrew/etc/bashrc; fi
+  - if [[ "$TRAVIS_OS_NAME" == 'osx' ]]; then export PATH=$HOME/perl5/perlbrew/bin:$PATH; fi
+  - if [[ "$TRAVIS_OS_NAME" == 'osx' ]]; then echo $TRAVIS_PERL_VERSION; fi
+  - if [[ "$TRAVIS_OS_NAME" == 'osx' ]]; then perlbrew install perl-$TRAVIS_PERL_VERSION; perlbrew use perl-$TRAVIS_PERL_VERSION; perlbrew install-cpanm; fi
+  #
+  # Install local::lib
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl -L http://cpanmin.us | HARNESS_OPTIONS=j4 perl - --notest --local-lib=~/perl5 local::lib && eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib); fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then curl -L http://cpanmin.us | HARNESS_OPTIONS=j4 perl - --notest App::cpanminus; fi
+  # install libpng for OSX
+  - export SPLIT_BUILD=0
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then source ~/travis-perl-helpers/init; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then build-perl; fi
+  - perl -V
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then build-dist; fi
+  - cd $TRAVIS_BUILD_DIR
+
+install:
+  - cd $TRAVIS_BUILD_DIR
+  - pwd
+  # Initialize local::lib on OSX, a second time as this is a new shell session
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib); fi
+  - HARNESS_OPTIONS=j4 cpanm --notest ExtUtils::MakeMaker~6.68
+  - HARNESS_OPTIONS=j4 cpanm --notest --installdeps .
+
+script:
+  - cd $TRAVIS_BUILD_DIR
+  - perl Makefile.PL && make
+  - prove -j4 -blv t/
+
+branches:
+  except:
+    - /^wip\//
+    - /^blocked/
+#notifications:
+#  email: false
+#  irc:
+#    channels:
+#      - "irc.perl.org#moo-smoke"
+#    template:
+#      - "%{repository}#%{build_number} %{branch} by %{author}: %{message} (%{build_url})"
+#    on_success: change
+#    on_failure: always
+#    skip_join: true
