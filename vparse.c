@@ -46,9 +46,29 @@ static void _buf_ensure(struct buf *buf, size_t n)
     buf->alloc = newalloc;
 }
 
+#if defined(WIN32)
+static char *mystrndup(const char *s, size_t n)
+{
+    size_t len = strlen(s);
+    char *new;
+
+    if (n < len)
+        len = n;
+
+    new = (char *) malloc(len + 1);
+    if (new == NULL)
+        return NULL;
+
+    new[len] = '\0';
+    return (char *) memcpy (new, s, len); /* NOLINT */
+}
+#else
+#define mystrndup(s, n) strndup(s, n)
+#endif
+
 static char *buf_dup_cstring(struct buf *buf)
 {
-    char *ret = strndup(buf->s, buf->len);
+    char *ret = mystrndup(buf->s, buf->len);
     /* more space efficient than returning overlength buffers, and
      * you would just wind up mallocing another buffer anyway */
     buf->len = 0;
